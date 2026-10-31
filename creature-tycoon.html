@@ -90,6 +90,9 @@ h4{margin:0 0 10px;font-size:14px;color:var(--mu);}
 #fx{position:absolute;inset:0;pointer-events:none;}
 .dmg{position:absolute;top:30%;transform:translateX(-50%);font-weight:800;font-size:22px;color:#fff;text-shadow:0 0 4px #d9534f,0 2px 0 #d9534f;white-space:nowrap;animation:fl .9s forwards;}
 .dmg.crit{font-size:26px;color:#ffe066;} .dmg.heal{text-shadow:0 0 4px #4caf6a,0 2px 0 #4caf6a;}
+#xMap svg{width:100%;height:auto;display:block;}
+#away{width:72%!important;flex-direction:row!important;gap:8px;text-align:left;border-color:var(--ac);}
+#away .ic{font-size:30px;}#away small{font-size:11px;}
 </style>
 </head>
 <body>
@@ -115,6 +118,7 @@ h4{margin:0 0 10px;font-size:14px;color:var(--mu);}
       <div id="spotBub" style="display:none"></div>
       <div id="feedBub" style="display:none"></div>
       <div id="food" style="display:none"></div>
+      <button id="away" class="spot" style="display:none;left:50%;top:58%;z-index:80" onclick="event.stopPropagation();openTrip()"></button>
       <div id="pet"><div id="petSay" class="bub"></div><div id="petFlip"><div id="petSvg"></div></div></div>
     </div>
     <div class="stat"><div id="petBars"></div><div class="stats" id="petStats"></div></div>
@@ -137,8 +141,8 @@ const BR={str:{n:'นักสู้',n4:'ราชานักสู้',ic:'�
 const EVO_AGE=[0,0,5,12]; // ร่าง 2 วันที่ 5, ร่าง 3 วันที่ 12
 const CRYSTAL_PRICE=1500;
 const KEY='creatureTycoonSave2';
-let S={money:300,day:1,gen:1,crystal:0,f:{book:0,weight:0,tread:0,chef:0},c:null,legacy:null,log:[],ev:null,b:null,evo:false,tick:0,screen:'egg',over:false};
-let egg,T,BT,MT,sel=null,selTO,face=1;
+let S={money:300,day:1,gen:1,crystal:0,f:{book:0,weight:0,tread:0,chef:0},c:null,legacy:null,log:[],ev:null,b:null,evo:false,tick:0,screen:'egg',over:false,trip:null,npcs:[],album:[]};
+let egg,T,BT,MT,XT,xKey='',sel=null,selTO,face=1;
 
 // --- Save ---
 const store={get(){try{return localStorage.getItem(KEY)}catch(e){return null}},set(v){try{localStorage.setItem(KEY,v)}catch(e){}},del(){try{localStorage.removeItem(KEY)}catch(e){}}};
@@ -201,9 +205,9 @@ function hatch(){
 }
 
 // --- Loop ---
-function startGameLoop(){clearInterval(T);T=setInterval(step,1500);clearInterval(MT);MT=setInterval(moveLoop,50);}
+function startGameLoop(){clearInterval(T);T=setInterval(step,1500);clearInterval(MT);MT=setInterval(moveLoop,50);clearInterval(XT);XT=setInterval(tripTick,1000);}
 function step(){
-  if(S.ev||S.b||S.over||S.evo||!S.c)return;
+  if(S.ev||S.b||S.over||S.evo||S.trip||!S.c)return;
   const c=S.c; S.tick++; if(c.fierce>0)c.fierce--;
   c.hun-=c.trait==='ตะกละ'?3:2;
   if(S.f.chef&&c.hun<30&&S.money>=20){c.hun+=40;S.money-=20;log('👨‍🍳 เชฟป้อนข้าวให้');}
@@ -230,7 +234,7 @@ function autoPick(c){
   setSay('อยากไป '+SPOTS[k].ic+' ~',2000);
 }
 function doAct(c){
-  const m=c.trait==='ขยัน'?1.3:1, a=c.act, F=S.f;
+  const m=(c.trait==='ขยัน'?1.3:1)*(c.hurt>S.day?.5:1), a=c.act, F=S.f;
   if(a!=='rest'&&c.en<10){log(c.name+' หมดแรง พักก่อน');c.act='rest';c.at=false;return;}
   if(a==='read'){c.int+=m*(1+0.5*F.book);c.en-=4;}
   else if(a==='lift'){c.str+=m*(1+0.5*F.weight);c.en-=6;}
@@ -263,7 +267,7 @@ function die(){
 }
 
 // --- Map & Events ---
-function explore(){closeMap();if(!S.c||S.b||S.ev||S.over||S.evo)return;S.c.en=cl(S.c.en-15);randEv();render();}
+function explore(){closeMap();if(!S.c||S.b||S.ev||S.over||S.evo||S.trip)return;S.c.en=cl(S.c.en-15);randEv();render();}
 function randEv(){
   const n=S.c.name;
   const EV=[
@@ -314,7 +318,7 @@ function placeFood(){
 }
 function showFeed(){
   const b=$('feedBub'); if(b.style.display==='block'){hideFeed();return;}
-  if(!S.c||S.over||S.ev||S.b||S.evo)return;
+  if(!S.c||S.over||S.ev||S.b||S.evo||S.trip)return;
   if(S.food){setSay('ยังกินไม่หมดเลย',1500);return;}
   sel=null;hideBub();
   b.innerHTML='<b>จะให้กินอะไรดี?</b><div class="g">'+Object.entries(FOODS).map(([k,f])=>`<button class="btn" onclick="event.stopPropagation();eat('${k}')" ${S.money<f.p?'disabled':''}>${f.ic} ${f.n} ฿${f.p}<br><small>${f.d}</small></button>`).join('')+'</div>';
@@ -333,11 +337,11 @@ function finishEat(){
   else{c.hun=cl(c.hun+30);c.int+=1;setSay('🐟 อร่อย! รู้สึกฉลาดขึ้น',2000);}
   log(f.ic+' กิน'+f.n+'หมดแล้ว');render();saveGame();
 }
-function play(){const c=S.c;if(!c||c.en<8)return;c.bond=cl(c.bond+8);c.en=cl(c.en-5);log('🎾 เล่นกับ '+c.name);render();saveGame();}
+function play(){const c=S.c;if(!c||c.en<8||S.trip)return;c.bond=cl(c.bond+8);c.en=cl(c.en-5);log('🎾 เล่นกับ '+c.name);render();saveGame();}
 
 // --- Combat ---
 function fight(t){
-  const c=S.c; if(!c||c.en<25||S.b)return;
+  const c=S.c; if(!c||c.en<25||S.b||S.trip)return;
   c.en-=25;c.act=null;closeMap();
   S.b={t,ph:60+eff(c,'str')*2,pm:60+eff(c,'str')*2,eh:50+t*40,em:50+t*40,E:[10,20,34][t-1],ch:3,buff:1,L:['⚔️ เริ่มประลองระดับ '+t],end:0};
   clearInterval(BT);BT=setInterval(round,1300);render();openBattle();
@@ -473,7 +477,7 @@ function showBub(k){
   clearTimeout(selTO); selTO=setTimeout(()=>{sel=null;hideBub();render();},5000);
 }
 function tapSpot(k){
-  const c=S.c; if(!c||S.over||S.ev||S.b||S.evo)return;
+  const c=S.c; if(!c||S.over||S.ev||S.b||S.evo||S.trip)return;
   hideFeed();
   if(sel!==k){sel=k;showBub(k);render();return;}
   sel=null;hideBub();
@@ -486,7 +490,7 @@ function tapSpot(k){
   render();saveGame();
 }
 function moveLoop(){
-  const c=S.c; if(!c||S.ev||S.b||S.over||S.evo)return;
+  const c=S.c; if(!c||S.ev||S.b||S.over||S.evo||S.trip)return;
   let tx,ty;
   if(S.food){tx=S.food.x-9;ty=S.food.y;}
   else if(c.act){const s=SPOTS[c.act];tx=s.tx;ty=s.ty;}
@@ -506,9 +510,10 @@ function place(){
   placeFood();
 }
 function openMap(){
+  if(S.trip){openTrip();return;}
   closeMap();
   const d=document.createElement('div');d.id='mapUI';
-  d.innerHTML=`<div class="ov" onclick="event.target==this&&closeMap()"><div class="md"><b>🗺️ ผจญภัย</b><h4>⚔️ สนามประลอง (ใช้พลัง 25)</h4><div class="g"><button class="btn" onclick="fight(1)">ประลองง่าย<br><small>฿150</small></button><button class="btn" onclick="fight(2)">ประลองกลาง<br><small>฿400</small></button><button class="btn" onclick="fight(3)" style="grid-column:span 2">ประลองโหด<br><small>฿1000</small></button></div><button class="btn" onclick="explore()">🌲 ออกไปสำรวจ (สุ่มเหตุการณ์)</button><button class="btn" onclick="closeMap()">ปิด</button></div></div>`;
+  d.innerHTML=`<div class="ov" onclick="event.target==this&&closeMap()"><div class="md"><b>🗺️ ผจญภัย</b><h4>⚔️ สนามประลอง (ใช้พลัง 25)</h4><div class="g"><button class="btn" onclick="fight(1)">ประลองง่าย<br><small>฿150</small></button><button class="btn" onclick="fight(2)">ประลองกลาง<br><small>฿400</small></button><button class="btn" onclick="fight(3)" style="grid-column:span 2">ประลองโหด<br><small>฿1000</small></button></div><button class="btn on" onclick="openExp()">🧭 Expedition · ผจญภัยจริงจัง</button><button class="btn" onclick="closeMap();openAlbum()">📖 อัลบั้มความทรงจำ (${S.album.length})</button><button class="btn" onclick="explore()">🌲 เดินเล่นสั้นๆ (สุ่มเหตุการณ์)</button><button class="btn" onclick="closeMap()">ปิด</button></div></div>`;
   document.body.appendChild(d);
 }
 function closeMap(){const e=$('mapUI');if(e)e.remove();}
@@ -518,15 +523,211 @@ function render(){
   if(S.screen==='home'){
     const s=svg(c); if(s!==lastSvg){$('petSvg').innerHTML=s;lastSvg=s;}
     $('petSay').textContent=c.say||(S.food?(c.at?'🍽️ งั่มๆ':'หอมจัง!'):c.act&&!c.at?'กำลังเดินไป '+SPOTS[c.act].ic:say(c));
-    $('petName').textContent=`${c.name} · ร่าง ${c.stage} ${formName(c)}${c.trait?' · '+c.trait:''}${c.fierce>0?' · 😠ดุ':''}`;
+    $('petName').textContent=`${c.name} · ร่าง ${c.stage} ${formName(c)}${c.trait?' · '+c.trait:''}${c.fierce>0?' · 😠ดุ':''}${c.hurt>S.day?' · 🩹บาดเจ็บ':''}`;
     $('petBars').innerHTML=bar('อิ่ม',c.hun,'var(--ac)')+bar('พลัง',c.en,'var(--blue)')+bar('สนิท',c.bond,'var(--pink)')+bar('อายุ',c.age/c.max*100,'var(--mu)');
     $('petStats').innerHTML=`<span>💪 ${Math.floor(eff(c,'str'))}</span><span>⚡ ${Math.floor(eff(c,'spd'))}</span><span>🧠 ${Math.floor(eff(c,'int'))}</span><span>💎 ${S.crystal}</span>`;
     Object.entries(SPOTS).forEach(([k,sp])=>{const e=$('sp-'+k);if(!e)return;e.className='spot'+(c.act===k?' on':'')+(sel===k?' sel':'');if(sp.f)$('lv-'+k).textContent='Lv'+S.f[sp.f];});
     $('btnFeed').disabled=S.money<20;
-    renderEvo(c); place();
+    renderEvo(c); place(); awayUI();
   }
   renderModals();
 }
+// --- Expedition (ผจญภัย: นิสัยเปลี่ยนเรื่อง) ---
+const BIO=[
+{n:'ป่าชื้น',ic:'🌲',st:2,dg:.6,lm:1,rg:.08,a:'กระต่ายขาว',w:'ลำธาร',m:'หมาป่า',wx:'ฝนป่า',col:'#4caf6a',d:'ปลอดภัย · ของทั่วไป'},
+{n:'ทะเลทราย',ic:'🏜️',st:3,dg:1.1,lm:1.6,rg:.2,a:'จิ้งจกยักษ์',w:'โอเอซิส',m:'แมงป่องยักษ์',wx:'พายุทราย',col:'#e0a84a',d:'โหด · ของหายาก'},
+{n:'ภูเขาหิมะ',ic:'🏔️',st:3,dg:1,lm:1.3,rg:.28,a:'จิ้งจอกหิมะ',w:'บ่อน้ำพุร้อน',m:'หมีหิมะ',wx:'พายุหิมะ',col:'#6fb4e6',d:'ผลึกง่าย · พลังหมดไว'}];
+const XD=[0,0,120,180,240]; // วินาทีจริงต่อทริป ตามร่าง
+const XI=['🐾','💧','🎁','⚔️','🧳','🌦️','👥','','','💎'];
+const SUP={'':['🚫','ไม่เอา',0,'ฟรี'],veg:['🥬','ผัก',20,'บาดเจ็บ -40%'],meat:['🥩','เนื้อ',50,'ด่านแรง/เร็ว +25%'],fish:['🐟','ปลา',40,'ด่านปัญญา +25% · ของ +20%']};
+const ORD={c:['🛡️','ระวังตัว','บาดเจ็บ -40% · ของ -20%'],b:['🔥','กล้าได้กล้าเสีย','ของ +40% · บาดเจ็บ +40%'],f:['🤝','หาเพื่อน','เจอเพื่อนใหม่ง่ายขึ้น']};
+const NN=[['ขนปุก','🐰'],['เจ้าเขี้ยว','🦊'],['หนูนา','🐭'],['ปุยฝ้าย','🐑'],['ก้อนหิน','🦔'],['ลูกท้อ','🐿️'],['ฟ้าใส','🦉'],['จุกจิก','🐸']];
+// เหตุการณ์: นิสัยเดียวกัน → ผลต่างกัน (c=ต้องผ่านด่านสเตตัส, m=เงิน, g=โอกาสผลึก, s=สเตตัสที่เพิ่ม, b=สนิท, e=พลัง, h=โอกาสบาดเจ็บ, n=เจอ NPC f/r)
+const XE=[
+{tt:'ทริป{a}ริม{w}',o:{
+ 'ตะกละ':{x:'{n}เห็น{a}แล้วน้ำลายไหล งับของกินในมือมันแล้ววิ่งหนี!',m:50,b:-1,h:.15},
+ 'ขยัน':{x:'{n}ช่วย{a}ขนของข้าม{w} มันดีใจจนให้ของขวัญ',m:60,b:3},
+ 'ขี้หึง':{x:'{n}แยกเขี้ยวใส่{a} เพราะไม่อยากให้ใครมาแย่งความสนใจ',b:-2,n:'r'},
+ 'ซน':{x:'{n}ขโมยแครอทของ{a}! แล้ววิ่งหนีสุดชีวิต',m:70,h:.2,n:'r'},
+ _:{x:'{n}นั่งมอง{a}ริม{w} สักพักทั้งคู่ก็กลายเป็นเพื่อนกัน',b:2,n:'f'}}},
+{tt:'วันที่{n}พบ{w}ลึกลับ',o:{
+ 'ตะกละ':{x:'{n}ลงไปจับปลาใน{w} กินจนพุงกาง เดินต่อแทบไม่ไหว',b:1,e:-8},
+ 'ขยัน':{x:'{n}จัดระเบียบริม{w} แล้วเจอสมุนไพรขายได้',m:80},
+ 'ขี้หึง':{x:'{n}เห็นเงาตัวเองใน{w} นึกว่าคู่แข่ง! ทะเลาะกับเงาจนเหนื่อย',b:-1,e:-10},
+ 'ซน':{x:'{n}กระโดดตูมลง{w}! น้ำกระเซ็นทั่ว แถมงมของจมน้ำกลับมา',m:90,b:2},
+ _:{x:'{n}จิบน้ำจาก{w} พักเหนื่อยสบายๆ',b:1,e:10}}},
+{tt:'ทริปหีบสมบัติเก่า',o:{
+ 'ตะกละ':{x:'{n}เห็นหีบแล้วนึกว่ากล่องข้าว ขย้ำจนฝาหลุด!',m:100,h:.1},
+ 'ขยัน':{x:'{n}ค่อยๆ งัดน็อตทีละตัวจนหีบเปิด เหรียญเต็มเลย',m:220},
+ 'ขี้หึง':{x:'{n}ปกป้องหีบไว้ไม่ให้ใครแตะ แล้วลากกลับมาทั้งใบ',m:150,b:1},
+ 'ซน':{x:'{n}เตะหีบเล่น ฝาเด้งเปิด ผลึกกระเด็นออกมา!',g:.5,m:60,h:.25},
+ _:{x:'{n}เปิดหีบเจอเหรียญเก่าเล็กน้อย',m:100}}},
+{tt:'ทริปสู้กับ{m}',o:{
+ 'ตะกละ':{x:'{n}พุ่งใส่{m} เพราะคิดว่าเป็นอาหารมื้อใหญ่!',c:'str',m:180,s:'str'},
+ 'ขยัน':{x:'{n}ตั้งหลักสู้กับ{m}ตามแผนอย่างใจเย็น',c:'str',m:170,s:'str'},
+ 'ขี้หึง':{x:'{n}คิดว่า{m}จะมาแย่งเจ้าของ จึงสู้สุดใจ',c:'str',m:150,b:2},
+ 'ซน':{x:'{n}หลอกให้{m}ตกหลุม แล้ววิ่งหนีไปหัวเราะ',c:'spd',m:170,s:'spd'},
+ _:{x:'{n}เผชิญหน้ากับ{m}ตรงๆ',c:'str',m:130,s:'str'}}},
+{tt:'ทริปพ่อค้าเร่',o:{
+ 'ตะกละ':{x:'{n}ใช้เงินซื้อของกินจากพ่อค้าเร่จนหมดตัว',m:-60,b:2,e:25},
+ 'ขยัน':{x:'{n}ต่อรองราคาสมุนไพร แล้วเอาไปขายต่อกำไรงาม',m:120},
+ 'ขี้หึง':{x:'{n}ไม่ยอมให้พ่อค้าแตะของเจ้าของ เขาเลยแถมของไถ่โทษ',m:50,b:1},
+ 'ซน':{x:'{n}ปั่นหัวพ่อค้าจนแถมของฟรี',m:100},
+ _:{x:'{n}แวะดูของ ได้ของฝากเล็กน้อย',m:40}}},
+{tt:'ทริปฝ่า{wx}',o:{
+ 'ตะกละ':{x:'{wx}มา! แต่{n}ได้กลิ่นของกินจึงฝ่าไปสุดตัว',m:80,h:.35},
+ 'ขยัน':{x:'{n}ขุดหลุมหลบ{wx}อย่างเรียบร้อย',b:1},
+ 'ขี้หึง':{x:'{n}ซุกกอดผ้าพันคอของเจ้าของไว้แน่นตลอด{wx}',b:2},
+ 'ซน':{x:'{n}เล่นกลางพายุสนุกจนลืมเวลา',b:2,e:-15,h:.1},
+ _:{x:'{n}หาที่หลบ{wx}ได้ทันเวลา',e:-5}}}];
+// จดหมายจากบ้าน: ทางแยกให้ผู้เล่นตัดสินใจ (d = สิ่งที่สัตว์เลือกเองตามนิสัยถ้าไม่ตอบ/ไม่ฟัง)
+const XL=[
+{ti:'วันที่เจอถ้ำต้องสาป',q:'เจอถ้ำมืด มีเสียงแปลกๆ ข้างใน… จะเข้าไปสำรวจไหม? 👀',d:{'ตะกละ':0,'ซน':0,'ขยัน':2,'ขี้หึง':1,_:2},o:[
+ {l:'⚡ เข้าไปเลย! (เสี่ยง · รางวัลใหญ่)',x:'{n}พุ่งเข้าถ้ำมืดทันที',c:'int',m:320,g:.15,s:'int',b:2},
+ {l:'🛡️ อย่าเสี่ยง (ปลอดภัย)',x:'{n}ถอยออกมา ไม่มีอะไรเกิดขึ้น',b:1},
+ {l:'📣 ส่งเสียงก่อน (50/50)',x:'{n}ตะโกนเข้าไป ไม่นานก็มีบางอย่างตะโกนตอบกลับ',c:'?',m:160,b:1}]},
+{ti:'ทริปข้ามสะพานเก่า',q:'สะพานเชือกเก่าโยกเอี๊ยดอ๊าด… ข้ามเลยไหม?',d:{'ตะกละ':0,'ซน':0,'ขยัน':2,'ขี้หึง':1,_:2},o:[
+ {l:'⚡ ข้ามเลย! (เสี่ยง)',x:'{n}วิ่งข้ามสะพานทั้งที่มันสั่น',c:'spd',m:280,s:'spd',b:2},
+ {l:'🛡️ อ้อมทาง (ปลอดภัย)',x:'{n}เดินอ้อมไกล เหนื่อยแต่ปลอดภัย',m:40,e:-10},
+ {l:'🪵 ย่องทีละแผ่น (50/50)',x:'{n}ย่องข้ามทีละแผ่นไม้อย่างช้าๆ',c:'?',m:170,b:1}]},
+{ti:'ทริปเสียงร้องไห้ในพุ่มไม้',q:'ได้ยินเสียงร้องไห้เบาๆ จากพุ่มไม้ข้างทาง…',d:{'ตะกละ':1,'ซน':0,'ขยัน':0,'ขี้หึง':1,_:2},o:[
+ {l:'🤝 เข้าไปช่วย',x:'{n}ช่วยลูกสัตว์ที่หลงทางออกมาได้',b:4,n:'f',h:.15},
+ {l:'🙈 ไม่สน เดินต่อ',x:'{n}แกล้งไม่ได้ยินแล้วเดินต่อ แต่ใจหายนิดๆ',b:-2,m:40},
+ {l:'📣 ตะโกนถามก่อน',x:'{n}ตะโกนถาม เสียงเงียบลง แล้วเจ้าตัวเล็กก็โผล่ออกมาเอง',b:2,n:'f',m:50}]}];
+let PX={bi:0,sup:'',od:'c'};
+const tmpl=(s,x)=>s.replace(/\{(\w+)\}/g,(_,k)=>x[k]??'');
+const fmt=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+const gr=(n,a)=>`<div class="g" style="grid-template-columns:repeat(${n},1fr)">${a.join('')}</div>`;
+function xOv(h){closeX();const d=document.createElement('div');d.id='expUI';d.innerHTML=`<div class="ov" onclick="event.target==this&&closeX()"><div class="md" id="xBody">${h}</div></div>`;document.body.appendChild(d);}
+function closeX(){const e=$('expUI');if(e)e.remove();xKey='';}
+function xctx(){const c=S.c,B=BIO[S.trip.bi];return{n:c.name,a:B.a,w:B.w,m:B.m,wx:B.wx,p:''};}
+function newNpc(rel,r){
+  const used=S.npcs.map(p=>p.n),fr=NN.filter(x=>!used.includes(x[0]));
+  if(!fr.length){const p=S.npcs[Math.floor(r()*S.npcs.length)];p.met++;return p;}
+  const x=fr[Math.floor(r()*fr.length)],p={n:x[0],ic:x[1],rel,met:1};S.npcs.push(p);return p;
+}
+function openExp(){
+  closeMap(); if(S.trip)return openTrip();
+  const c=S.c; if(!c||S.b||S.ev||S.over||S.evo)return;
+  if(c.stage<2){xOv(`<b>🧭 Expedition</b><div class="log">${c.name}ยังเล็กเกินไป — ต้องถึงร่าง 2 (วัยรุ่น) ก่อน</div><button class="btn" onclick="closeX()">ปิด</button>`);return;}
+  if(c.stage<BIO[PX.bi].st)PX.bi=0;
+  const hurt=c.hurt>S.day,dur=XD[c.stage],cost=SUP[PX.sup][2];
+  const why=hurt?`🩹 ยังบาดเจ็บ พักอีก ${c.hurt-S.day} วัน`:c.en<30?'⚡ พลังต้อง ≥ 30':S.food?'🍽️ รอกินให้เสร็จก่อน':S.money<cost?'💰 เงินไม่พอ':'';
+  xOv(`<b>🧭 Expedition</b><div class="log">${c.name}จะไปเองตามนิสัย (${c.trait||'ไม่มีนิสัยเด่น'}) · ปิดเกมระหว่างทางได้ ทริปเดินต่อเอง</div>
+  <h4>จุดหมาย</h4>${gr(3,BIO.map((b,k)=>`<button class="btn ${PX.bi===k?'on':''}" style="padding:8px 2px" onclick="PX.bi=${k};openExp()" ${c.stage<b.st?'disabled':''}>${b.ic} ${b.n}<br><small>${c.stage<b.st?'ร่าง '+b.st+'+':b.d}</small></button>`))}
+  <h4>เสบียง</h4>${gr(2,Object.entries(SUP).map(([k,s])=>`<button class="btn ${PX.sup===k?'on':''}" style="padding:8px 2px" onclick="PX.sup='${k}';openExp()">${s[0]} ${s[1]}${s[2]?' ฿'+s[2]:''}<br><small>${s[3]}</small></button>`))}
+  <h4>คำสั่งพิเศษ (ใช้ตอนเราไม่อยู่)</h4>${gr(3,Object.entries(ORD).map(([k,o])=>`<button class="btn ${PX.od===k?'on':''}" style="padding:8px 2px" onclick="PX.od='${k}';openExp()">${o[0]} ${o[1]}<br><small>${o[2]}</small></button>`))}
+  <button class="btn on" onclick="startExp()" ${why?'disabled':''}>🚀 ออกเดินทาง · ${fmt(dur)} นาที${cost?' · ฿'+cost:''}</button>${why?`<div class="log">${why}</div>`:''}
+  <button class="btn" onclick="closeX()">ปิด</button>`);
+}
+function startExp(){
+  const c=S.c,cost=SUP[PX.sup][2]; if(!c||S.trip||c.hurt>S.day||c.en<30||S.food||S.money<cost)return;
+  S.money-=cost;c.act=null;c.at=false;hideFeed();sel=null;hideBub();
+  const seed=ri(1,1e9),r=rng(seed),pool=[0,1,2,3,4,5],dur=XD[c.stage],lt=[0,1,2].sort(()=>r()-.5);
+  if(S.npcs.length)pool.push(6,6);
+  S.trip={bi:PX.bi,sup:PX.sup,od:PX.od,seed,t0:Date.now(),dur,i:0,q:null,hurt:0,best:{s:-99,tt:''},story:[],npc:[],g:{m:0,g:0,str:0,spd:0,int:0,b:0,e:0},
+    w:Array.from({length:10},(_,k)=>{const t=Math.round(dur*(k+1)/10);return k===9?{t,e:9}:k===3?{t,l:lt[0]}:k===6?{t,l:lt[1]}:{t,e:pool[Math.floor(r()*pool.length)]};})};
+  log('🧭 '+c.name+' ออกผจญภัยที่'+BIO[PX.bi].n);awayUI();saveGame();openTrip();
+}
+function xapply(o,i,tt,ctx,ic){
+  const tr=S.trip,c=S.c,B=BIO[tr.bi],g=tr.g,r=rng(tr.seed+i*977+7),bold=tr.od==='b',care=tr.od==='c';
+  const hz=B.dg*(bold?1.4:care?.6:1)*(tr.sup==='veg'?.6:1);
+  let ok=true,hurt=0,np='',s0=g.m,g0=g.g;
+  if(o.c){
+    if(o.c==='?')ok=r()<.5;
+    else{const st=o.c==='L'?lead(c):o.c,pw=eff(c,st)*((tr.sup==='meat'&&st!=='int')||(tr.sup==='fish'&&st==='int')?1.25:1),need=7+B.dg*6+i*.9;ok=r()<cl(.5+(pw-need)*.04,.12,.95);}
+  }
+  if(ok){
+    const k=.45*B.lm*(bold?1.4:care?.8:1)*(tr.sup==='fish'?1.2:1)*(1+(c.stage-2)*.25);
+    if(o.m)g.m+=o.m>0?Math.round(o.m*k):o.m;
+    if(o.g&&r()<o.g)g.g++;
+    if(o.s)g[o.s]++;
+    g.b+=o.b||0;g.e+=o.e||0;
+    if(o.h&&r()<o.h*hz)hurt=1;
+    const nn=o.n||(tr.od==='f'&&r()<.2?'f':'');
+    if(nn){const p=newNpc(nn,r);np=p.ic+p.n;if(p.met===1)tr.npc.push(p);}
+  }else{g.b--;if(r()<.4)hurt=1;}
+  if(hurt)tr.hurt=1; tr.lastOk=ok;
+  const sc=(g.m-s0)/100+(g.g-g0)*4+(np?2:0)+(hurt?2:0)+(ok?0:1.5)-(o.f?3:0);
+  tr.story.push({x:ic+' '+tmpl(o.x,ctx)+(o.c?(ok?' ✓':' 💢'):'')+(np?` · พบ ${np}`:'')+(hurt?' 🩹':''),sc});
+  if(sc>tr.best.s)tr.best={s:sc,tt:tmpl(tt,ctx)};
+}
+function xev(i,e){
+  const tr=S.trip,c=S.c,B=BIO[tr.bi],ctx=xctx();let o,tt,p=null;
+  if(e===6){p=S.npcs[Math.floor(rng(tr.seed+i)()*S.npcs.length)];p.met++;ctx.p=p.ic+p.n;tt='ทริปเจอ{p}';
+    o=p.rel==='f'?{x:'{p}เพื่อนเก่าของ{n}โผล่มาช่วยชี้ทาง!',m:120,b:3}:{x:'{p}คู่ปรับของ{n}ขวางทาง! แข่งกันตัวต่อตัว',c:'L',m:140,s:lead(c),b:2};}
+  else if(e===9){o={x:'ปลายทางแล้ว! {n}ขุดเจอขุมทรัพย์ท่ามกลาง{w}',m:260,g:B.rg,b:3,f:1};tt='ทริปขุมทรัพย์ริม{w}';}
+  else{o=XE[e].o[c.trait]||XE[e].o._;tt=XE[e].tt;}
+  xapply(o,i,tt,ctx,XI[e]);
+  if(p&&p.rel==='r'&&tr.lastOk&&rng(tr.seed+i+5)()<.4){p.rel='f';tr.story[tr.story.length-1].x+=' · แข่งแล้วกลายเป็นเพื่อนกัน 💚';}
+}
+function xletter(tr,ch){
+  const c=S.c,L=XL[tr.q.l],i=tr.i,r=rng(tr.seed+i*977+3),own=L.d[c.trait]??L.d._;
+  let pick=ch,pre='';
+  if(ch==null){pick=own;pre='⏳ เงียบไป… '+c.name+'ตัดสินใจเอง: ';}
+  else if(own!==ch&&r()>cl(.35+c.bond*.006-(c.trait==='ซน'?.15:0),.2,.97)){pick=own;pre='😤 '+c.name+'ไม่ฟัง! ทำตามใจ: ';}
+  const o=Object.assign({},L.o[pick]);o.x=pre+o.x;
+  xapply(o,i,L.ti,xctx(),'✉️');tr.q=null;tr.i++;
+}
+function xAnswer(k){const tr=S.trip;if(!tr||!tr.q)return;xletter(tr,k);saveGame();tripTick();}
+function tripTick(){
+  const tr=S.trip; if(!tr||!S.c)return; const now=Date.now();let ch=0;
+  while(tr.i<tr.w.length){
+    const w=tr.w[tr.i],at=tr.t0+w.t*1000; if(now<at)break;
+    if(w.l!=null){if(!tr.q){tr.q={l:w.l,dl:at+30000};ch=1;} if(now<tr.q.dl)break; xletter(tr,null);}
+    else xev(tr.i++,w.e);
+    ch=1;
+  }
+  if(tr.i>=tr.w.length)return endTrip(0);
+  if(ch)saveGame();
+  awayUI();
+  if($('xMap')){const key=tr.i+':'+(tr.q?1:0);if(key!==xKey)renderTrip();else{xMapUp();const e=$('xCd');if(e&&tr.q)e.textContent='⏳ เหลือ '+Math.max(0,Math.ceil((tr.q.dl-now)/1000))+' วิ — ถ้าไม่ตอบ '+S.c.name+' จะตัดสินใจเองตามนิสัย';}}
+}
+function awayUI(){
+  const a=$('away'),tr=S.trip,p=$('pet'); if(!a)return;
+  a.style.display=tr?'flex':'none'; if(p)p.style.visibility=tr?'hidden':'visible';
+  if(!tr||!S.c)return;
+  const B=BIO[tr.bi],left=Math.max(0,Math.ceil((tr.t0+tr.dur*1000-Date.now())/1000));
+  a.style.borderColor=tr.q?'var(--ac)':'';
+  a.innerHTML=tr.q?`<span class="ic">✉️</span><small><b>จดหมายจาก${S.c.name}!</b><br>ตอบภายใน ${Math.max(0,Math.ceil((tr.q.dl-Date.now())/1000))} วิ</small>`:`<span class="ic">${B.ic}</span><small>${S.c.name}กำลังผจญภัย · เหลือ ~${fmt(left)}<br>แตะเพื่อดูเส้นทาง</small>`;
+}
+function openTrip(){if(!S.trip)return;xOv('');renderTrip();}
+function renderTrip(){
+  const tr=S.trip,c=S.c; if(!tr||!$('xBody'))return;
+  const B=BIO[tr.bi],L=tr.q?XL[tr.q.l]:null; xKey=tr.i+':'+(tr.q?1:0);
+  $('xBody').innerHTML=`<b>${B.ic} ${B.n} · ${c.name}</b><div id="xMap"></div>`+
+  (L?`<div class="card" style="border-color:var(--ac)"><b>📨 จดหมายจาก${c.name}</b><div style="margin:6px 0">“${tmpl(L.q,xctx())}”</div>${L.o.map((o,k)=>`<button class="btn" style="display:block;width:100%;margin-top:6px" onclick="xAnswer(${k})">${o.l}</button>`).join('')}<small id="xCd" style="color:var(--mu)"></small><br><small style="color:var(--mu)">สนิท ${Math.round(c.bond)} · ยิ่งสนิท ยิ่งเชื่อฟัง</small></div>`:'')+
+  `<div class="log" style="text-align:left;background:var(--bg);padding:8px;border-radius:8px">${tr.story.slice(-4).reverse().map(s=>`<div>${s.x}</div>`).join('')||'เพิ่งออกเดินทาง…'}</div><div class="g"><button class="btn" onclick="closeX()">ปิดดู</button><button class="btn" onclick="recall()">📯 เรียกกลับ</button></div>`;
+  xMapUp();
+}
+function xMapUp(){
+  const tr=S.trip,e=$('xMap'); if(!tr||!e)return;
+  const P=k=>[22+k*28,46+Math.sin(k*1.4)*20],pts=[...Array(10)].map((_,k)=>P(k));
+  const f=cl((Date.now()-tr.t0)/(tr.dur*1000),0,1)*9,a=Math.min(8,Math.floor(f)),u=f-a,px=pts[a][0]+(pts[a+1][0]-pts[a][0])*u,py=pts[a][1]+(pts[a+1][1]-pts[a][1])*u;
+  let s=`<svg viewBox="0 0 300 92" style="background:var(--bg);border-radius:10px"><path d="${pts.map((p,k)=>(k?'L':'M')+p[0].toFixed(0)+' '+p[1].toFixed(0)).join('')}" stroke="${BIO[tr.bi].col}" stroke-width="3" stroke-dasharray="5 5" fill="none" opacity=".7"/><text x="4" y="${pts[0][1]+4}" font-size="12">🚩</text>`;
+  tr.w.forEach((w,k)=>{const [x,y]=pts[k];s+=k<tr.i?`<text x="${x}" y="${y+5}" text-anchor="middle" font-size="14">${w.l!=null?'✉️':XI[w.e]}</text>`:(k===tr.i&&tr.q?`<text x="${x}" y="${y+5}" text-anchor="middle" font-size="16">✉️</text>`:`<circle cx="${x}" cy="${y}" r="3" fill="var(--bd)"/>`);});
+  s+=`<circle cx="${px}" cy="${py-10}" r="7" fill="${look(S.c.seed).body}" stroke="var(--tx)" stroke-width="1.5"/></svg><div class="log" style="text-align:center">เหลือ ~${fmt(Math.max(0,Math.ceil((tr.t0+tr.dur*1000-Date.now())/1000)))} · ถึงจุดที่ ${Math.min(tr.i,10)}/10</div>`;
+  e.innerHTML=s;
+}
+function recall(){if(S.trip)endTrip(1);}
+function endTrip(early){
+  const tr=S.trip,c=S.c,g=tr.g,B=BIO[tr.bi];
+  const bd=Math.round(g.b+(early?-2:tr.hurt?-1:2)),ti=tr.best.tt||'ทริปสั้นๆ ของ'+c.name;
+  const top=[...tr.story.keys()].sort((a,b)=>tr.story[b].sc-tr.story[a].sc).slice(0,3).sort((a,b)=>a-b).map(k=>tr.story[k].x);
+  S.money=Math.max(0,S.money+g.m);S.crystal+=g.g;['str','spd','int'].forEach(k=>c[k]+=g[k]);
+  c.bond=cl(c.bond+bd);c.en=cl(c.en-(tr.bi===2?35:20)+g.e,5,100);c.hun=cl(c.hun-25);
+  if(tr.hurt)c.hurt=S.day+4;
+  S.album.unshift({ti,bi:tr.bi,day:S.day,n:c.name,ln:top});S.album=S.album.slice(0,30);
+  const sts=['str','spd','int'].filter(k=>g[k]).map(k=>BR[k].ic+'+'+g[k]).join(' '),nn=tr.npc.map(p=>(p.rel==='f'?'💚':'⚔️')+p.ic+p.n).join(' ');
+  log('🏠 '+c.name+' กลับจาก'+B.n+' · “'+ti+'”');S.trip=null;
+  xOv(`<div style="font-size:34px">${B.ic}</div><b>“${ti}”</b><div class="log" style="text-align:left">${top.map(x=>'· '+x).join('<br>')||'· ออกไปเดินเล่นนิดหน่อย'}</div><div class="card" style="font-size:13px;line-height:1.7;text-align:left">กลับบ้านพร้อม<br>💰 ${g.m>=0?'+':''}฿${g.m}${g.g?' · 💎+'+g.g:''}${sts?'<br>'+sts:''}<br>❤️ สนิท ${bd>=0?'+':''}${bd}${tr.hurt?'<br>🩹 บาดเจ็บ ต้องพักราว 1 นาที':''}${nn?'<br>เพื่อน/คู่ปรับใหม่: '+nn:''}</div><div class="g"><button class="btn" onclick="openAlbum()">📖 อัลบั้ม</button><button class="btn on" onclick="closeX()">เยี่ยม!</button></div>`);
+  render();saveGame();
+}
+function openAlbum(){
+  xOv(`<b>📖 อัลบั้มความทรงจำ</b>`+(S.npcs.length?`<div class="log">${S.npcs.map(p=>`${p.ic}${p.n} ${p.rel==='f'?'💚':'⚔️'}×${p.met}`).join(' · ')}</div>`:'')+
+  (S.album.length?S.album.map((a,i)=>`<div class="card" style="text-align:left;border-left:6px solid ${BIO[a.bi].col}"><b>${BIO[a.bi].ic} ${a.ti}</b><div class="log" style="margin:4px 0">${a.ln.map(x=>'· '+x).join('<br>')}</div><small>${a.n} · วันที่ ${a.day}</small> <button class="btn" id="cp${i}" style="padding:2px 8px;font-size:11px" onclick="copyCard(${i})">คัดลอก</button></div>`).join(''):'<div class="log">ยังไม่มีทริป — ส่งสัตว์ออกไปผจญภัยดู!</div>')+`<button class="btn" onclick="closeX()">ปิด</button>`);
+}
+function copyCard(i){const a=S.album[i];try{navigator.clipboard.writeText('“'+a.ti+'”\n'+BIO[a.bi].ic+' '+a.n+' · วันที่ '+a.day+'\n'+a.ln.join('\n')+'\n#CreatureTycoon');}catch(e){}const b=$('cp'+i);if(b)b.textContent='คัดลอกแล้ว ✓';}
 window.onload=()=>{buildSpots();loadGame();};
 </script>
 
