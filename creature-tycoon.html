@@ -40,6 +40,45 @@ h4{margin:0 0 10px;font-size:14px;color:var(--mu);}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;z-index:99;}
 .md{background:var(--card);border-radius:16px;padding:20px;max-width:340px;width:100%;display:grid;gap:12px;text-align:center;animation:pop .2s;max-height:92vh;overflow-y:auto;}
 @keyframes pop{0%{transform:scale(.9);opacity:0;}100%{transform:scale(1);opacity:1;}}
+/* ===== เอฟเฟกต์กลายร่าง ===== */
+.evfx{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 50%,rgba(52,36,104,.94),rgba(6,5,22,.98));overflow:hidden;animation:evIn .3s both}
+.evfx.big{background:radial-gradient(circle at 50% 50%,rgba(22,34,104,.95),rgba(2,2,14,.99))}
+.evfx.out{animation:evOut .55s forwards}
+@keyframes evIn{from{opacity:0}}
+@keyframes evOut{to{opacity:0;visibility:hidden}}
+.evfx .rays{position:absolute;width:170vmax;height:170vmax;left:50%;top:50%;margin:-85vmax 0 0 -85vmax;background:repeating-conic-gradient(from 0deg,rgba(255,255,255,0) 0 9deg,rgba(255,236,160,.6) 9deg 13deg);-webkit-mask:radial-gradient(circle,#000 0,transparent 42%);mask:radial-gradient(circle,#000 0,transparent 42%);opacity:0;animation:evRays 3.4s linear forwards}
+.evfx.big .rays{background:repeating-conic-gradient(from 0deg,rgba(255,255,255,0) 0 9deg,rgba(150,200,255,.65) 9deg 12deg);animation-duration:4.2s}
+@keyframes evRays{0%{opacity:0;transform:rotate(0) scale(.4)}35%{opacity:.9}70%{opacity:1;transform:rotate(90deg) scale(1)}100%{opacity:0;transform:rotate(150deg) scale(1.25)}}
+.evfx .aura{position:absolute;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.95),rgba(255,222,130,.5) 40%,transparent 70%);transform:scale(0);animation:evAura var(--t0,1.3s) ease-in forwards}
+.evfx.big .aura{background:radial-gradient(circle,rgba(255,255,255,.95),rgba(140,190,255,.55) 40%,transparent 70%)}
+@keyframes evAura{to{transform:scale(1.9)}}
+.evfx .evc{position:relative;width:220px;height:220px;filter:drop-shadow(0 0 6px rgba(255,236,160,.5));animation:evCharge var(--t0,1.3s) ease-in forwards}
+.evfx.big .evc{filter:drop-shadow(0 0 8px rgba(140,200,255,.7))}
+.evfx .evc svg,.evfx .evc img{width:100%;height:100%;display:block;overflow:visible}
+@keyframes evCharge{0%{transform:scale(1)}15%{transform:translateX(-3px) scale(1.02)}30%{transform:translateX(3px) scale(1.05)}45%{transform:translateX(-4px) scale(1.07)}60%{transform:translateX(4px) scale(1.1)}80%{transform:translateX(-5px) scale(1.14)}100%{transform:scale(1.18)}}
+.evfx .evc.ph2{animation:none;transform:scale(1.22);filter:brightness(0) invert(1) drop-shadow(0 0 28px #fff);transition:filter .12s}
+.evfx .evc.ph3{animation:evReveal 1s cubic-bezier(.2,.8,.3,1) forwards}
+@keyframes evReveal{0%{filter:brightness(0) invert(1) drop-shadow(0 0 40px #fff);transform:scale(1.35)}35%{filter:brightness(1.8) drop-shadow(0 0 34px #ffe9a0);transform:scale(.92)}70%{transform:scale(1.06)}100%{filter:drop-shadow(0 0 14px rgba(255,236,160,.6));transform:scale(1)}}
+.evfx.big .evc.ph3{animation-name:evRevealB}
+@keyframes evRevealB{0%{filter:brightness(0) invert(1) drop-shadow(0 0 44px #fff);transform:scale(1.4)}35%{filter:brightness(1.8) drop-shadow(0 0 36px #9cf);transform:scale(.9)}70%{transform:scale(1.07)}100%{filter:drop-shadow(0 0 16px rgba(140,200,255,.8));transform:scale(1)}}
+.evfx .fl{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.evfx .fl.fire{animation:evFlash .7s ease-out}
+@keyframes evFlash{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
+.evfx .ring{position:absolute;width:60px;height:60px;border-radius:50%;border:5px solid rgba(255,244,190,.95);box-shadow:0 0 22px rgba(255,236,160,.9);opacity:0;animation:evRing 1s ease-out forwards}
+.evfx.big .ring{border-color:rgba(170,210,255,.95);box-shadow:0 0 24px rgba(140,200,255,.95)}
+@keyframes evRing{0%{transform:scale(.3);opacity:1}100%{transform:scale(11);opacity:0}}
+.evfx .sp{position:absolute;left:50%;top:50%;font-size:20px;color:#fff1a8;text-shadow:0 0 8px #ffd54a;opacity:0;animation:evSp 1.2s ease-out forwards}
+.evfx.big .sp{color:#cfe6ff;text-shadow:0 0 8px #6aa8ff}
+@keyframes evSp{0%{transform:translate(-50%,-50%) scale(.2);opacity:1}100%{transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) scale(1.1) rotate(180deg);opacity:0}}
+.evfx .bolts{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.evfx .zap{opacity:0;animation:evZap .5s both}
+@keyframes evZap{0%{opacity:0}8%{opacity:1}22%{opacity:.25}34%{opacity:1}100%{opacity:0}}
+.evfx.big.hit{animation:evShakeScr .5s}
+@keyframes evShakeScr{0%,100%{transform:none}20%{transform:translate(-6px,3px)}40%{transform:translate(6px,-3px)}60%{transform:translate(-4px,2px)}80%{transform:translate(3px,-2px)}}
+.evfx .evcap{position:absolute;left:0;right:0;bottom:16%;text-align:center;color:#fff;font-weight:bold;font-size:18px;text-shadow:0 0 12px rgba(255,255,255,.7);opacity:0;animation:evCap .6s .3s forwards}
+@keyframes evCap{to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.evfx .fl.fire,.evfx .zap,.evfx.big.hit{animation:none}}
+
 .egg-stage{user-select:none;-webkit-user-select:none;touch-action:none;cursor:pointer;padding:30px 0;display:flex;justify-content:center;}
 /* room */
 #room{position:relative;flex:1;min-height:0;border-radius:14px;overflow:hidden;border:1px solid var(--bd);}
@@ -268,6 +307,7 @@ function hatch(){
   switchScreen('home');
   log(`🐣 ${c.name} ฟักออกมาแล้ว! ฐาน 4/4/4 + โบนัส 2 แต้มที่ ${BR[k].ic}`);
   startGameLoop();
+  evoFx(`<svg viewBox="0 0 200 200" width="200" height="200"><image href="${owlSrc('egg',egg.seed)}" width="200" height="200"/></svg>`,svg(c),{cap:'🥚 ไข่กำลังสั่น…',done:'🐣 ฟักแล้ว!'});
 }
 
 // --- Loop ---
@@ -351,14 +391,47 @@ function openDiscovery(){
   xOv(`<b>🔎 สมุดค้นพบและความทรงจำ</b><div class="discovery">${stats}</div><div class="discovery">🧬 เบาะแสวิวัฒนาการลับ: ${discoveryProfile()||'ยังไม่พบเส้นทางเฉพาะ'}<br>สะสมเรื่องราวต่างชนิดกัน เพื่อเปิดรูปแบบวิวัฒนาการที่ไม่เหมือนใคร</div>${mem||'<div class="log">ยังไม่มีบันทึก ลองออกสำรวจและเลือกเส้นทางที่แตกต่างกัน</div>'}<div class="g"><button class="btn" onclick="openExp()">🧭 กลับไปสำรวจ</button><button class="btn" onclick="closeX()">ปิด</button></div>`);
 }
 function evolve(){
-  const c=S.c;
+  const c=S.c; const fxFrom=svg(c);
   if(c.stage===1){c.stage=2;['str','spd','int'].forEach(x=>c[x]+=2);}
   else{const k=lead(c);c.br=k;c.stage=3;const secret=discoveryProfile();if(secret){c.secretForm=secret;unlockDiscovery('วิวัฒนาการ '+secret);['str','spd','int'].forEach(x=>c[x]+=x===k?5:2);}else{['str','spd','int'].forEach(x=>c[x]+=x===k?4:1);}}
-  soulEvo(c);S.evo=true; log('✨ '+c.name+' → ร่าง '+c.stage+' '+formName(c)); render(); saveGame();
+  soulEvo(c);S.evo=true; log('✨ '+c.name+' → ร่าง '+c.stage+' '+formName(c)); render(); saveGame(); evoFx(fxFrom,svg(c),{done:'✨ ร่าง '+c.stage+' · '+formName(c)});
 }
 function useCrystal(){
   const c=S.c; if(!c||c.stage!==3||S.crystal<1)return;
-  S.crystal--; c.k4=kindForm(c); c.stage=4; soulEvo(c); S.evo=true; if(c.secretForm){recordMemory('secret','ตำนาน '+c.secretForm,'วิวัฒนาการลับสมบูรณ์แล้ว');} log('🌟 ใช้ผลึก! '+c.name+' เป็น '+formName(c)); render(); saveGame();
+  const fxFrom=svg(c);
+  S.crystal--; c.k4=kindForm(c); c.stage=4; soulEvo(c); S.evo=true; if(c.secretForm){recordMemory('secret','ตำนาน '+c.secretForm,'วิวัฒนาการลับสมบูรณ์แล้ว');} log('🌟 ใช้ผลึก! '+c.name+' เป็น '+formName(c)); render(); saveGame(); evoFx(fxFrom,svg(c),{big:true,cap:'⚡ ผลึกตำนานตอบสนอง…',done:'🌟 '+formName(c)});
+}
+
+// ===== เอฟเฟกต์กลายร่าง: ร่าง 1-3 = แสงรวมตัว→วาบขาว→เผยร่างใหม่ · ร่าง 4 = มีสายฟ้าฟาดเพิ่ม (กดที่จอเพื่อข้ามได้) =====
+function evoFx(fromHtml,toHtml,opt){
+  opt=opt||{};const big=!!opt.big;if(document.querySelector('.evfx'))return;
+  const T0=big?1900:1300; // เวลา (ms) ที่ร่างเก่าเปลี่ยนเป็นร่างใหม่
+  const el=document.createElement('div');el.className='evfx'+(big?' big':'');el.style.setProperty('--t0',T0+'ms');
+  el.innerHTML=`<div class="rays"></div><div class="aura"></div>${big?'<svg class="bolts" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>':''}<div class="evc">${fromHtml}</div><div class="evcap">${opt.cap||'✨ กำลังวิวัฒนาการ…'}</div><div class="fl"></div>`;
+  document.body.appendChild(el);
+  const evc=el.querySelector('.evc'),fl=el.querySelector('.fl'),tm=[];
+  const later=(f,ms)=>tm.push(setTimeout(f,ms));
+  if(big){ // สายฟ้า: 2 ครั้งก่อนกลายร่าง + ฟาดลงกลางตัวตอนเปลี่ยนร่าง
+    const bolts=el.querySelector('.bolts'),R=(a,b)=>a+Math.random()*(b-a);
+    const bolt=(x0,y0,x1,y1,delay,w)=>{
+      let p=[[x0,y0]];const n=7;for(let i=1;i<n;i++){const t=i/n;p.push([x0+(x1-x0)*t+R(-7,7),y0+(y1-y0)*t+R(-2,2)]);}p.push([x1,y1]);
+      const pts=p.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ');
+      return `<g class="zap" style="animation-delay:${delay}s"><polyline points="${pts}" fill="none" stroke="#5b9dff" stroke-width="${w*3}" stroke-linejoin="round" opacity=".55" vector-effect="non-scaling-stroke"/><polyline points="${pts}" fill="none" stroke="#fff" stroke-width="${w}" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></g>`;
+    };
+    bolts.innerHTML=bolt(R(20,40),0,R(38,46),R(36,44),.55,2)+bolt(R(60,80),0,R(54,62),R(36,44),1.2,2)+bolt(50,0,50,48,T0/1000,3.5)+bolt(50,0,R(30,38),42,T0/1000,2)+bolt(50,0,R(62,70),42,T0/1000,2);
+    later(()=>el.classList.add('hit'),T0);
+  }
+  later(()=>evc.classList.add('ph2'),T0-140);
+  later(()=>{
+    evc.innerHTML=toHtml;evc.className='evc ph3';fl.classList.add('fire');
+    const ring=document.createElement('div');ring.className='ring';el.appendChild(ring);
+    for(let i=0;i<(big?36:26);i++){const sp=document.createElement('div'),a=Math.random()*6.283,d=90+Math.random()*(big?200:150);
+      sp.className='sp';sp.textContent=Math.random()<.5?'✦':'✧';sp.style.setProperty('--x',Math.cos(a)*d+'px');sp.style.setProperty('--y',Math.sin(a)*d+'px');sp.style.animationDelay=(Math.random()*.25)+'s';sp.style.fontSize=(12+Math.random()*16)+'px';el.appendChild(sp);}
+    const cap=el.querySelector('.evcap');if(cap&&opt.done)cap.textContent=opt.done;
+  },T0);
+  const end=()=>{tm.forEach(clearTimeout);el.classList.add('out');setTimeout(()=>el.remove(),600);};
+  later(end,T0+1700);
+  el.addEventListener('click',()=>{if(!el.classList.contains('out')&&evc.classList.contains('ph3'))end();});
 }
 function closeEvo(){S.evo=false;render();saveGame();}
 function die(){
