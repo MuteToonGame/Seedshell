@@ -146,6 +146,9 @@ const NAMES=['มะม่วง','ถั่วงอก','ก้อนเมฆ
 const BR={str:{n:'นักสู้',n4:'ราชานักสู้',ic:'💪'},spd:{n:'นักล่า',n4:'ราชานักล่า',ic:'⚡'},int:{n:'นักปราชญ์',n4:'ราชานักปราชญ์',ic:'🧠'}};
 const EVO_AGE=[0,0,5,12]; // ร่าง 2 วันที่ 5, ร่าง 3 วันที่ 12
 const CRYSTAL_PRICE=1500;
+const CAP0=69,CAPUP=.10; // เพดานสเตตัสเริ่มต้น · เพิ่มต่อรุ่นเมื่อสัตว์ตาย (สะสมแบบทบต้น)
+const capOf=k=>Math.round((S.cap&&S.cap[k])||CAP0);
+function clampStats(c){if(!c||c.nocap)return;['str','spd','int'].forEach(k=>{const m=capOf(k);if(c[k]>m)c[k]=m;});}
 const KEY='creatureTycoonSave2';
 let S={money:300,day:1,gen:1,crystal:0,f:{book:0,weight:0,tread:0,chef:0},c:null,legacy:null,log:[],ev:null,b:null,evo:false,tick:0,screen:'egg',over:false,pity:0,items:{},depth:0,bestD:0,bag:{},dBi:0,dOf:0,npcs:[],album:[],guests:[],vis:null,reps:[],dq:null,hostN:0,discoveries:{memories:[],counts:{},biomes:{},secretReady:false}};
 let egg,T,BT,MT,sel=null,selTO,face=1;
@@ -157,7 +160,7 @@ function loadGame(){
   let sv=null; try{sv=JSON.parse(store.get())}catch(e){}
   if(sv) S=Object.assign(S,sv);
   S.f=Object.assign({book:0,weight:0,tread:0,chef:0},S.f); S.b=null; S.discoveries=Object.assign({memories:[],counts:{},biomes:{},secretReady:false},S.discoveries||{}); S.discoveries.counts=Object.assign({},S.discoveries.counts); S.discoveries.biomes=Object.assign({},S.discoveries.biomes);
-  if(S.c){ if(S.c.x==null){S.c.x=50;S.c.y=72;} soulEnsure(); switchScreen('home'); startGameLoop(); checkDaily(); } else startEgg();
+  if(S.c){ if(S.c.x==null){S.c.x=50;S.c.y=72;} if(!S.cap){S.cap={str:CAP0,spd:CAP0,int:CAP0};S.c.nocap=1;} soulEnsure(); switchScreen('home'); startGameLoop(); checkDaily(); } else startEgg();
 }
 function resetGame(){ if(confirm('ต้องการเริ่มเกมใหม่ทั้งหมดใช่หรือไม่?')){ store.del(); location.reload(); } }
 
@@ -184,6 +187,7 @@ function switchScreen(scr){
 
 // --- Egg ---
 function startEgg(){
+  document.querySelectorAll('.ov[data-m]').forEach(e=>e.remove());XQ=null;closeX(true);closeBattle();closeMap();closeShop();hideFeed();lastSvg='';
   egg={p:0,hold:0,taps:0,down:0,seed:ri(1,999999)};
   S.c=null;S.screen='egg';S.over=false;S.evo=false;S.food=null;S.log=[];saveGame();
   document.querySelectorAll('.screen').forEach(e=>e.classList.remove('active'));
@@ -244,6 +248,7 @@ function autoPick(c){
 function doAct(c){
   const a=c.act, F=S.f, m=(c.trait==='ขยัน'?1.3:1)*(c.hurt>S.day?.5:1)*(S.vis&&S.vis.k===a?1.25:1);
   if(a!=='rest'&&c.en<10){log(c.name+' หมดแรง พักก่อน');c.act='rest';c.at=false;return;}
+  const SK={read:'int',lift:'str',run:'spd'}[a];if(SK&&!c.nocap&&c[SK]>=capOf(SK)){log('📈 '+c.name+'ถึงเพดาน '+STN[SK]+' ของตระกูลแล้ว');c.act=null;c.at=false;c.auto=false;c.wx=null;setSay('เต็มเพดานแล้ว!',2000);return;}
   if(a==='read'){c.int+=m*(1+eqB(F.book));c.en-=4;}
   else if(a==='lift'){c.str+=m*(1+eqB(F.weight));c.en-=6;}
   else if(a==='run'){c.spd+=m*(1+eqB(F.tread));c.en-=6;}
@@ -302,8 +307,8 @@ function useCrystal(){
 function closeEvo(){S.evo=false;render();saveGame();}
 function die(){
   clearInterval(T); const c=S.c; soulDie(c);
-  S.legacy={pn:c.name,best:soulBest(c),soul:c.soul?{ax:Object.assign({},c.soul.ax)}:null,trait:c.trait||pick(TR),bonus:Math.round(Math.max(c.str,c.spd,c.int)*0.15),legend:c.secretForm||'',memories:(S.discoveries?.memories||[]).slice(0,3).map(x=>x.title)};
-  S.over={c:c,L:S.legacy}; S.gen++; saveGame(); render();
+  S.legacy={pn:c.name,best:soulBest(c),soul:c.soul?{ax:Object.assign({},c.soul.ax)}:null,trait:c.trait||pick(TR),bonus:0,legend:c.secretForm||'',memories:(S.discoveries?.memories||[]).slice(0,3).map(x=>x.title)};
+  S.cap=S.cap||{str:CAP0,spd:CAP0,int:CAP0};S.legacy.capOld=capOf('str');['str','spd','int'].forEach(k=>{S.cap[k]=(S.cap[k]||CAP0)*(1+CAPUP);});S.legacy.capNew=capOf('str');S.over={c:c,L:S.legacy}; S.gen++; saveGame(); render();
 }
 
 // --- Map & Events ---
@@ -497,7 +502,7 @@ function renderModals(){
     h+=b.end?`<button class="btn on" onclick="closeB()">ปิด</button>`:`<div class="g"><button class="btn" onclick="cheer(1)">📣 เชียร์ (${b.ch})</button><button class="btn" onclick="cheer(0)">🍖 โยนอาหาร (${b.ch})</button></div>`;modal(h);}
   if(S.evo&&S.c){const c=S.c;const d={2:'สเตตัสทุกด้าน +2',3:`สายนี้เด่นด้าน ${BR[c.br||'str'].ic} (+4 ด้านหลัก · +1 ด้านอื่น)`,4:'สเตตัส ×1.5 และเงินจากงาน ×1.5'}[c.stage];
     modal(`<div style="font-size:18px;font-weight:bold">✨ วิวัฒนาการ!</div>${svg(c)}<b>${c.name} → ร่าง ${c.stage}: ${formName(c)}</b><div class="log">${d}</div><button class="btn on" onclick="closeEvo()">เยี่ยม!</button>`);}
-  if(S.over){modal(`<div style="font-size:40px">🪦</div><b>${S.over.c.name} หมดอายุขัยแล้ว</b><div class="log">กลับเป็นไข่ สืบทอดนิสัย “${S.over.L.trait}” และสเตตัส +${S.over.L.bonus} ให้รุ่นต่อไป${S.over.L.legend?`<br>🌟 ตำนานประจำตระกูล: ${S.over.L.legend}`:''}${S.over.L.memories?.length?`<br>📜 เรื่องเล่าที่ส่งต่อ: ${S.over.L.memories.join(' · ')}`:''}</div><button class="btn on" onclick="startEgg()">🥚 ฟักไข่ใบใหม่</button>`);}
+  if(S.over){modal(`<div style="font-size:40px">🪦</div><b>${S.over.c.name} หมดอายุขัยแล้ว</b><div class="log">กลับเป็นไข่ สืบทอดนิสัย “${S.over.L.trait}” และเพดานสเตตัสของตระกูลเพิ่ม 10% (${S.over.L.capOld} → ${S.over.L.capNew}) ให้รุ่นต่อไป${S.over.L.legend?`<br>🌟 ตำนานประจำตระกูล: ${S.over.L.legend}`:''}${S.over.L.memories?.length?`<br>📜 เรื่องเล่าที่ส่งต่อ: ${S.over.L.memories.join(' · ')}`:''}</div><button class="btn on" onclick="startEgg()">🥚 ฟักไข่ใบใหม่</button>`);}
 }
 const SPOTS={
  read:{ic:'📖',n:'อ่านหนังสือ',sn:'ชั้นหนังสือ',f:'book',st:'int',sx:18,sy:24,tx:18,ty:52,en:4},
@@ -564,13 +569,14 @@ function openMap(){
 function closeMap(){const e=$('mapUI');if(e)e.remove();}
 let lastSvg='';
 function render(){
-  topBar(); if(!S.c)return; const c=S.c;
+  topBar(); if(!S.c)return; const c=S.c; clampStats(c);
   if(S.screen==='home'){
     const s=svg(c); if(s!==lastSvg){$('petSvg').innerHTML=s;lastSvg=s;}
     $('petSay').textContent=c.say||(S.food?(c.at?'🍽️ งั่มๆ':'หอมจัง!'):c.act&&!c.at?'กำลังเดินไป '+SPOTS[c.act].ic:say(c));
     $('petName').textContent=`${c.name} · ร่าง ${c.stage} ${formName(c)}${c.trait?' · '+c.trait:''}${c.fierce>0?' · 😠ดุ':''}${c.hurt>S.day?' · 🩹บาดเจ็บ':''}${c.soul?' · 📔'+(c.soul.unread?' ใหม่ '+c.soul.unread:''):''}`;
     $('petBars').innerHTML=bar('อิ่ม',c.hun,'var(--ac)')+bar('พลัง',c.en,'var(--blue)')+bar('สนิท',c.bond,'var(--pink)')+bar('อายุ',c.age/c.max*100,'var(--mu)');
-    $('petStats').innerHTML=`<span>💪 ${Math.floor(eff(c,'str'))}</span><span>⚡ ${Math.floor(eff(c,'spd'))}</span><span>🧠 ${Math.floor(eff(c,'int'))}</span><span>💎 ${S.crystal}</span>`;
+    const cs=k=>c.nocap||c.stage>=4?'':`<small style="opacity:.55;font-weight:400">/${capOf(k)}</small>`;
+    $('petStats').innerHTML=`<span>💪 ${Math.floor(eff(c,'str'))}${cs('str')}</span><span>⚡ ${Math.floor(eff(c,'spd'))}${cs('spd')}</span><span>🧠 ${Math.floor(eff(c,'int'))}${cs('int')}</span><span>💎 ${S.crystal}</span>`;
     Object.entries(SPOTS).forEach(([k,sp])=>{const e=$('sp-'+k);if(!e)return;e.className='spot'+(c.act===k?' on':'')+(sel===k?' sel':'');if(sp.f)$('lv-'+k).textContent='Lv'+S.f[sp.f];const vs=$('vs-'+k);if(vs)vs.textContent=S.vis&&S.vis.k===k?S.vis.w.ic:'';});
     $('btnFeed').disabled=S.money<20;
     renderEvo(c); place();
@@ -1182,6 +1188,7 @@ function soulAct(c,a){
   if(top[1]/tot>=.35&&so.fav!==top[0]){so.fav=top[0];soulMem('hobby',c.name+'เริ่มหลงรัก '+SPOTS[top[0]].ic+SPOTS[top[0]].n+' เป็นพิเศษ',2,SPOTS[top[0]].ic,null);}
 }
 function soulWeights(c,w){
+  [['read','int'],['lift','str'],['run','spd']].forEach(([a,k])=>{if(!c.nocap&&c[k]>=capOf(k))w[a]=.05;});
   const so=c.soul;if(!so)return;const A=so.ax;
   if(so.fav&&w[so.fav])w[so.fav]*=1.8;
   if(soulQ('sleepy'))w.rest*=2.5;
@@ -1195,6 +1202,7 @@ function soulDis(c,k){
   if(so.ls>=2)p+=.1;if(so.ws>=3)p-=.05;return p;
 }
 function soulDisNote(c,k){
+  const st=SPOTS[k]&&SPOTS[k].st;if(st&&!c.nocap&&c[st]>=capOf(st))return '📈 เต็มเพดานแล้ว';
   const so=c.soul;if(!so)return '';
   if(so.fav===k)return '💖 ของโปรด';if(so.ls>=2)return '😞 กำลังท้อ';if(so.ws>=3)return '🔥 กำลังมั่นใจ';
   if(k==='read'&&so.ax.play>30)return '😒 ขี้เล่นเกินกว่าจะนั่งอ่าน';if(k==='read'&&so.ax.play<-30)return '📖 ชอบความสงบ';
@@ -1258,7 +1266,7 @@ function openSoul(){
   xOv(`<div style="display:flex;gap:8px;align-items:center;text-align:left"><div class="sv" style="width:64px;flex:none">${svg(c)}</div><div><b style="font-size:15px">📔 สมุดบันทึกของ ${c.name}</b><div class="log">${a[0]} <b>${a[1]}</b> · ร่าง ${c.stage} · รุ่น ${S.gen}</div></div></div>
   <div class="card" style="padding:8px"><b style="font-size:12px">🧭 บุคลิกตอนนี้ (เปลี่ยนไปตามเรื่องราว)</b>${axMeter('bold')}${axMeter('kind')}${axMeter('play')}
   <div style="margin-top:6px;text-align:left">${so.q.map(q=>`<div class="log">${QK[q][0]} <b>${QK[q][1]}</b> · ${QK[q][2]}</div>`).join('')}</div></div>
-  <div class="card log" style="text-align:left;padding:8px;line-height:1.6">🏆 ชนะ ${so.w} · 💔 แพ้ ${so.l}${so.ws>=2?` · 🔥 ติด ${so.ws}`:so.ls>=2?` · 😞 แพ้ติด ${so.ls}`:''}${so.fav?`<br>💖 งานอดิเรก: ${SPOTS[so.fav].ic}${SPOTS[so.fav].n}`:''}${so.ff?`<br>🍽️ ของโปรด: ${FOODS[so.ff].ic}${FOODS[so.ff].n}`:''}${fr?`<br>💞 เพื่อน: ${fr}`:''}${fe.length?`<br>😨 กลัว: ${fe.join(', ')}`:''}${gr.length?`<br>😡 แค้น: ${gr.join(', ')}`:''}</div>
+  <div class="card log" style="text-align:left;padding:8px;line-height:1.6">📈 เพดานสเตตัสตระกูล 💪${capOf('str')} ⚡${capOf('spd')} 🧠${capOf('int')}${c.nocap?' (รุ่นนี้ยังไม่จำกัด)':c.stage>=4?' (ร่าง 4 ทะลุเพดาน ×1.5)':''}<br>🏆 ชนะ ${so.w} · 💔 แพ้ ${so.l}${so.ws>=2?` · 🔥 ติด ${so.ws}`:so.ls>=2?` · 😞 แพ้ติด ${so.ls}`:''}${so.fav?`<br>💖 งานอดิเรก: ${SPOTS[so.fav].ic}${SPOTS[so.fav].n}`:''}${so.ff?`<br>🍽️ ของโปรด: ${FOODS[so.ff].ic}${FOODS[so.ff].n}`:''}${fr?`<br>💞 เพื่อน: ${fr}`:''}${fe.length?`<br>😨 กลัว: ${fe.join(', ')}`:''}${gr.length?`<br>😡 แค้น: ${gr.join(', ')}`:''}</div>
   ${star.length?`<b style="font-size:12px;text-align:left">⭐ ความทรงจำเด่น</b>${star.map(card).join('')}`:''}
   <b style="font-size:12px;text-align:left">📖 บันทึกล่าสุด</b>${rest.map(card).join('')||'<div class="log">ยังไม่มีเรื่องราว… ลองพาออกไปผจญภัยดู</div>'}
   ${past?`<details style="text-align:left"><summary style="font-size:12px;cursor:pointer">🕰️ ชาติก่อนๆ (${S.past.length})</summary>${past}</details>`:''}
