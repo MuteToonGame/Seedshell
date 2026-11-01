@@ -99,7 +99,7 @@ h4{margin:0 0 10px;font-size:14px;color:var(--mu);}
 .cd.sel{border-color:var(--ac);box-shadow:0 0 0 3px rgba(232,131,58,.4);transform:translateY(-4px);}.cd.w{border-color:var(--ok);}.cd.l{border-color:var(--bad);opacity:.8;}.vs{font-size:12px;min-height:18px;}
 @media(max-height:720px){.md{gap:7px;padding:14px;}#xHold{width:104px!important;height:104px!important;}#expUI .card{min-height:0!important;padding:8px;}#expUI .log{font-size:11px;}}
 .sv svg{width:100%!important;height:auto!important;display:block;}
-.chip{display:inline-block;margin:2px;padding:2px 8px;border-radius:12px;background:var(--bg);border:1px solid var(--bd);font-size:15px;animation:chp .4s backwards}@keyframes chp{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}.tile{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px;touch-action:manipulation;user-select:none;-webkit-user-select:none}.tile .ti{font-size:32px;line-height:1}
+.xchip{display:inline-block;margin:2px 3px 0 0;padding:2px 9px;border-radius:12px;background:var(--bg);border:1px solid var(--bd);font-size:16px;font-weight:600;animation:chp .35s backwards}@keyframes chp{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}.row{display:flex;align-items:center;gap:12px;width:100%;margin-top:8px;padding:10px 12px;text-align:left}.row .ti{font-size:30px;line-height:1}.row b{display:block;font-size:18px;font-weight:700}.row small{display:block;font-size:14px;color:var(--mu)}
 </style>
 </head>
 <body>
@@ -518,7 +518,7 @@ const bar=(l,v,col)=>`<div class="bar"><b>${l}</b><i><u style="width:${cl(v)}%;b
 // --- Render ---
 function renderEvo(c){
   const names=['ลูกอ่อน','วัยรุ่น',c.stage>=3?BR[c.br].n:'แตกสาย',c.stage>=4?BR[c.br].n4:'ใช้ 💎'];
-  $('evoPath').innerHTML=names.map((n,i)=>`<div class="chip ${i+1<c.stage?'done':i+1===c.stage?'on':''}">ร่าง ${i+1}<br>${n}</div>`).join('<span>›</span>');
+  setH('evoPath',names.map((n,i)=>`<div class="chip ${i+1<c.stage?'done':i+1===c.stage?'on':''}">ร่าง ${i+1}<br>${n}</div>`).join('<span>›</span>'));
   const btn=$('btnCrystal'); btn.style.display='none'; let t='';
   if(c.stage<3){const d=EVO_AGE[c.stage+1]-c.age; t=c.stage===1?`ร่าง 2 ในอีก ${d} วัน`:`ร่าง 3 ในอีก ${d} วัน · สายตามค่าสูงสุด (ตอนนี้โน้มไป ${BR[lead(c)].ic} ${BR[lead(c)].n})`;}
   else if(c.stage===3){t=`ร่าง 4 ต้องใช้ 💎 ผลึกตำนาน (มี ${S.crystal}) · ซื้อได้ที่ร้าน ฿${CRYSTAL_PRICE}`; btn.style.display='block'; btn.textContent='💎 ใช้ผลึก → ร่าง 4'; btn.disabled=S.crystal<1; btn.className=S.crystal>0?'btn on':'btn';}
@@ -607,9 +607,9 @@ function render(){
     const s=svg(c); if(s!==lastSvg){$('petSvg').innerHTML=s;lastSvg=s;}
     $('petSay').textContent=c.say||(S.food?(c.at?'🍽️ งั่มๆ':'หอมจัง!'):c.act&&!c.at?'กำลังเดินไป '+SPOTS[c.act].ic:say(c));
     $('petName').textContent=`${c.name} · ร่าง ${c.stage} ${formName(c)}${c.trait?' · '+c.trait:''}${c.fierce>0?' · 😠ดุ':''}${c.hurt>S.day?' · 🩹บาดเจ็บ':''}${c.soul?' · 📔'+(c.soul.unread?' ใหม่ '+c.soul.unread:''):''}`;
-    $('petBars').innerHTML=bar('อิ่ม',c.hun,'var(--ac)')+bar('พลัง',c.en,'var(--blue)')+bar('สนิท',c.bond,'var(--pink)')+bar('อายุ',c.age/c.max*100,'var(--mu)');
+    setH('petBars',bar('อิ่ม',c.hun,'var(--ac)')+bar('พลัง',c.en,'var(--blue)')+bar('สนิท',c.bond,'var(--pink)')+bar('อายุ',c.age/c.max*100,'var(--mu)'));
     const cs=k=>c.nocap||c.stage>=4?'':`<small style="opacity:.55;font-weight:400">/${capOf(k)}</small>`;
-    $('petStats').innerHTML=`<span>💪 ${Math.floor(eff(c,'str'))}${cs('str')}</span><span>⚡ ${Math.floor(eff(c,'spd'))}${cs('spd')}</span><span>🧠 ${Math.floor(eff(c,'int'))}${cs('int')}</span><span>💎 ${S.crystal}</span>`;
+    setH('petStats',`<span>💪 ${Math.floor(eff(c,'str'))}${cs('str')}</span><span>⚡ ${Math.floor(eff(c,'spd'))}${cs('spd')}</span><span>🧠 ${Math.floor(eff(c,'int'))}${cs('int')}</span><span>💎 ${S.crystal}</span>`);
     Object.entries(SPOTS).forEach(([k,sp])=>{const e=$('sp-'+k);if(!e)return;e.className='spot'+(c.act===k?' on':'')+(sel===k?' sel':'');if(sp.f)$('lv-'+k).textContent='Lv'+S.f[sp.f];const vs=$('vs-'+k);if(vs)vs.textContent=S.vis&&S.vis.k===k?S.vis.w.ic:'';});
     $('btnFeed').disabled=S.money<20||away();
     {let e=$('awayBn');if(away()){if(!e){e=document.createElement('div');e.id='awayBn';e.style.cssText='position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);z-index:50;background:var(--card);border:2px solid var(--bd);border-radius:12px;padding:10px 14px;text-align:center;font-size:13px;pointer-events:none';$('room').appendChild(e);}e.innerHTML=`🧭 ${c.name} ออกสำรวจอยู่<br><small>ชั้น ${S.depth} · กลับค่ายแล้วจะกลับมาบ้าน</small>`;$('pet').style.display='none';}else{if(e)e.remove();$('pet').style.display='';}}
@@ -776,14 +776,14 @@ function xMilestonePick(k){
   const c=S.c;if(!c)return;
   if(k==='mystery'){
     const ok=Math.random()<cl(.45+c.int*.012,.45,.9);
-    if(ok){const reward=ri(80,180);S.money+=reward;recordMemory('relic','ร่องรอยลับชั้น '+S.depth,'ค้นพบสัญลักษณ์โบราณและของฝาก ฿'+reward);if(Math.random()<.25)S.crystal++;xMsg(xOut('',xCh(['💰+'+reward]),'🔎✅'));}
-    else{c.en=cl(c.en-8);xMsg(xOut('',xCh(['🔋−8']),'🔎❌'));recordMemory('brave','ร่องรอยที่ยังไขไม่ได้','ยังไม่พบคำตอบ แต่สัตว์ไม่ยอมแพ้');}
+    if(ok){const reward=ri(80,180);S.money+=reward;recordMemory('relic','ร่องรอยลับชั้น '+S.depth,'ค้นพบสัญลักษณ์โบราณและของฝาก ฿'+reward);if(Math.random()<.25)S.crystal++;xMsg(xOut(c.name+'ถอดรหัสร่องรอยได้!',xCh(['💰+'+reward]),'🔎'));}
+    else{c.en=cl(c.en-8);xMsg(xOut('ร่องรอยซับซ้อนเกินไป',xCh(['🔋−8']),'🔎'));recordMemory('brave','ร่องรอยที่ยังไขไม่ได้','ยังไม่พบคำตอบ แต่สัตว์ไม่ยอมแพ้');}
   }else if(k==='camp'){
-    c.en=cl(c.en+25);c.bond=cl(c.bond+3);recordMemory('bond','พักแรมด้วยกัน','แบ่งเวลาพักและสร้างความไว้ใจ');xMsg(xOut('',xCh(['🔋+25','❤️+3']),'🏕️'));
+    c.en=cl(c.en+25);c.bond=cl(c.bond+3);recordMemory('bond','พักแรมด้วยกัน','แบ่งเวลาพักและสร้างความไว้ใจ');xMsg(xOut('พักแรมสำเร็จ',xCh(['🔋+25','❤️+3']),'🏕️'));
   }else{
     const stat=lead(c),need=8+S.depth*.45,ok=eff(c,stat)>=need||Math.random()<.35;
-    if(ok){gainXp(24);c[stat]+=1;recordMemory('brave','ผ่านบททดสอบชั้น '+S.depth,'ใช้จุดเด่นด้าน '+BR[stat].n+' ผ่านอุปสรรค');xMsg(xOut('',xCh([BR[stat].ic+'+1','⭐XP']),'⚡✅'));}
-    else{c.en=cl(c.en-12);xMsg(xOut('',xCh(['🔋−12','⭐XP']),'⚡❌'));gainXp(8);}
+    if(ok){gainXp(24);c[stat]+=1;recordMemory('brave','ผ่านบททดสอบชั้น '+S.depth,'ใช้จุดเด่นด้าน '+BR[stat].n+' ผ่านอุปสรรค');xMsg(xOut('ผ่านบททดสอบ!',xCh([BR[stat].ic+'+1','⭐XP']),'⚡'));}
+    else{c.en=cl(c.en-12);xMsg(xOut('ยังไม่พร้อม แต่ได้ประสบการณ์',xCh(['🔋−12','⭐XP']),'⚡'));gainXp(8);}
   }
   xAfter();
 }
@@ -819,7 +819,7 @@ function xGo(){
 }
 function xPick(k){const q=XQ;if(!q)return;XQ=null;xResolve(q,k);}
 function xResolve(q,ch){
-  if(q.fk)return dxDoor(q,ch);if(q.shop){xMsg(xOut('','','🛒🚪'));return xAfter();}
+  if(q.fk)return dxDoor(q,ch);if(q.shop){xMsg(xOut('ออกจากร้านแล้ว','','🛒'));return xAfter();}
   const c=S.c,L=q.L,own=soulPick(L,c);let pick=ch,pre='';
   if(ch==null){pick=own;pre='⏳ '+c.name+'ตัดสินใจเอง: ';}
   else if(own!==ch&&Math.random()>soulObey(c,L.o[ch],cl(.35+c.bond*.006-(c.trait==='ซน'?.15:0),.2,.97))){pick=own;pre=soulDefy(c,L.o[ch]);}
@@ -846,10 +846,10 @@ function xBuy(id){
   S.money-=i.p;xMsg(`${i.ic} ซื้อ${i.n} (−฿${i.p})`);xStat();xBagUI();render();saveGame();
 }
 function xBack(forced){
-  if(XQ)return xMsg(xOut('','','⛔🔀'));
+  if(XQ)return xMsg(xOut('เลือกทางก่อนนะ','','⛔'));
   const d=S.depth,B=BIO[S.dBi||0],b=Math.round(d*10*B.lm*(dxHas('amph')?1+.3*dxM('amph'):1));
   S.money+=b;S.depth=0;dxHome();log('🏠 '+S.c.name+' กลับค่าย · ลึกสุด '+d+' ชั้น');
-  const prev=forced?xLast+'<hr>':'';openExp();xMsg(`${prev}`+xOut('',xCh(['⬇️'+d,'🏆'+S.bestD,'💰+'+b]),(forced?'🔋0 ':'')+'🏠'));
+  const prev=forced?xLast+'<hr>':'';openExp();xMsg(`${prev}`+xOut((forced?'พลังหมด! ':'')+'กลับถึงค่ายแล้ว',xCh(['⬇️'+d,'🏆'+S.bestD,'💰+'+b]),'🏠'));
   render();saveGame();
 }
 function xAfter(){
@@ -901,7 +901,7 @@ function copyCard(i){const a=S.album[i];try{navigator.clipboard.writeText('“'+
 const FO=[['🐺','🐗'],['🦂','🐍'],['🐻','🦣']];
 let XBm='';
 function xChallenge(boss){
-  if(!boss&&dxHas('star')&&Math.random()<Math.min(.9,.5*dxM('star'))){xMsg(xOut('',xCh(['👻']),'🌠'));return xAfter();}
+  if(!boss&&dxHas('star')&&Math.random()<Math.min(.9,.5*dxM('star'))){xMsg(xOut('เงาแสงเหนือพาเดินผ่านศัตรูไปโดยไม่มีใครเห็น',xCh(['👻']),'🌠'));return xAfter();}
   const c=S.c,B=BIO[PX.bi],D=S.depth,ctx=xctx(),ic=FO[PX.bi][boss?1:0],pay=Math.round((50+D*12)*(boss?3:1));
   ctx.foe=B.m;
   const pt=boss?dxBoss():null;if(pt)dxSee('b:'+pt.id);const f={ic,name:boss?'เจ้าแห่ง'+B.m+' · '+pt.n:B.m,boss:boss?1:0,pat:pt?pt.id:''};
@@ -1032,7 +1032,7 @@ function dxBuild(t,v){
 }
 function dxShop(v,s0,ctx){
   const k=(1+S.depth*.03)*(v===1?.75:1),P=[['bag','rice','🍙','ข้าวปั้น +25 พลัง',70],['bag','meat','🍖','เนื้อย่าง +100 พลัง',280],['it','shield','🛡️','โล่กันบาดเจ็บ',250],['it','retry','🔮','ลูกแก้วลองใหม่',290],['key','key','🗝️','กุญแจห้องสมบัติ',360],['key','cloak','🧥','เสื้อคลุมกันอากาศ',210],['mys','','🎁','ถุงปริศนา (ของสะสมพื้นที่นี้)',420]];
-  XQ={shop:P.map(x=>({t:x[0],id:x[1],ic:x[2],n:x[3],p:Math.round(x[4]*k)})).sort(()=>Math.random()-.5).slice(0,4),ctx,s0,L:{o:[]},nm:DXT.shop[2][v],msg:'👋'};if(dx().ai){XQ=null;xMsg(xOut('','','🛒💨'));return xAfter();}dxShopUI();
+  XQ={shop:P.map(x=>({t:x[0],id:x[1],ic:x[2],n:x[3],p:Math.round(x[4]*k)})).sort(()=>Math.random()-.5).slice(0,4),ctx,s0,L:{o:[]},nm:DXT.shop[2][v],msg:'ยินดีต้อนรับ! เลือกของได้เลย'};if(dx().ai){XQ=null;xMsg(xOut('สัตว์เดินผ่านร้านค้าไป','','🛒'));return xAfter();}dxShopUI();
 }
 function dxBuy(i){
   const q=XQ,o=q&&q.shop&&q.shop[i];if(!o||o.sold||S.money<o.p)return;const D=dx();let m=o.ic+' ซื้อ'+o.n.split(' ')[0];
@@ -1042,7 +1042,7 @@ function dxBuy(i){
   else m+=dxCol(pk(['w','t']));
   S.money-=o.p;o.sold=1;q.msg=m;dxShopUI();render();saveGame();
 }
-function dxLeave(){XQ=null;xMsg(xOut('','','🛒🚪'));xAfter();}
+function dxLeave(){XQ=null;xMsg(xOut('ออกจากร้านแล้ว','','🛒'));xAfter();}
 function dxStat(){const R=dx().run,w=DXW.find(x=>x.id===R.wx),o=DXO.find(x=>x.id===R.om);return (o||w)?`<br>${o?o.ic:''}${w?' '+w.ic+'('+R.wl+')':''}${R.cl>0?' 🧥':''}`:'';}
 function dxBoss(){const u=DXB.filter(b=>!dx().seen['b:'+b.id]);return Math.random()<.7&&u.length?pk(u):pk(DXB);}
 function dxPat(b,pd){
@@ -1142,11 +1142,14 @@ function dxAi(){
 // ===== UI แบบไอคอน: แตะ=เลือก · กดค้าง=อ่านคำอธิบาย · 📜=อ่านเรื่องราว =====
 let XT=[],XF=[],xLt=null,xLf=false;
 const em=t=>{const m=String(t).match(/\p{Extended_Pictographic}(\u200d\p{Extended_Pictographic}|\uFE0F)*/u);return m?m[0]:'❔';};
-const xCh=a=>a.map(x=>`<span class="chip">${x}</span>`).join('');
+const xCh=a=>a.map(x=>`<span class="xchip">${x}</span>`).join('');
+function setH(id,h){const e=$(id);if(e&&e._h!==h){e.innerHTML=h;e._h=h;}}
+const xS=l=>{const ic=em(l),m=l.match(/\(([^)]*)\)/);return[l.replace(ic,'').replace(/\s*\([^)]*\)/g,'').trim(),m?m[1]:''];};
+function xRows(L){XF=[];return L.map((r,i)=>{XF[i]=r.fn;return `<button class="btn row" ${r.dis?'disabled':''} onclick="XF[${i}]()"><span class="ti">${r.ic}</span><span style="flex:1"><b>${r.t}</b>${r.sub?`<small>${r.sub}</small>`:''}<span>${r.ch||''}</span></span></button>`;}).join('');}
 function xLd(i){xLf=false;clearTimeout(xLt);xLt=setTimeout(()=>{xLf=true;const e=$('xTip');if(e)e.textContent=XT[i];},450);}
 function xLu(i){clearTimeout(xLt);if(!xLf&&XF[i])XF[i]();}
 function xTiles(L){XT=[];XF=[];return `<div class="g" style="grid-template-columns:repeat(auto-fit,minmax(78px,1fr))">`+L.map((t,i)=>{XT[i]=t[2];XF[i]=t[3];return `<button class="btn tile" ${t[4]?'disabled':''} onpointerdown="xLd(${i})" onpointerup="xLu(${i})" onpointerleave="clearTimeout(xLt)" oncontextmenu="return false"><span class="ti">${t[0]}</span><span>${t[1]}</span></button>`;}).join('')+`</div><div id="xTip" class="log" style="min-height:18px"></div>`;}
-function xOut(t,ch,big){return `<div style="font-size:38px;text-align:center">${big||em(t)}</div><div style="text-align:center">${ch||''}</div>`+(t?`<div style="text-align:center"><button class="btn" style="padding:0 10px;font-size:12px" onclick="this.nextElementSibling.style.display='block'">📜</button><div class="log" style="display:none;text-align:left">${t}</div></div>`:'');}
+function xOut(t,ch,big){return `<div style="font-size:38px;text-align:center">${big||em(t)}</div>`+(t?`<div style="font-size:17px;line-height:1.5;text-align:center;margin:6px 0">${t}</div>`:'')+`<div style="text-align:center">${ch||''}</div>`;}
 function optChips(o,ic){
   const p=[],sg=v=>(v>0?'+':'−')+Math.abs(Math.round(v));
   if(o.f)p.push('⚔️');if(o.fl)p.push('🏃');if(o.ky)p.push('🗝️');
@@ -1160,21 +1163,21 @@ function optChips(o,ic){
 function xAsk(){
   const q=XQ,c=S.c;if(dx().ai){XQ=null;return xResolve(q,null);}
   const pat=q.f&&q.f.pat?DXB.find(z=>z.id===q.f.pat):null,big=q.f?(q.f.boss?'👑':q.f.ic||'⚔️')+(pat?pat.ic:''):em(q.L.h||q.L.q);
-  xMsg(`<div style="text-align:center;font-size:40px">${big}</div>${pat?`<div style="text-align:center"><small>${pat.n}</small></div>`:''}<div style="text-align:center"><button class="btn" style="padding:0 10px;font-size:12px" onclick="$('xQ').style.display='block'">📜</button></div><div id="xQ" class="log" style="display:none">“${tmpl(q.L.q,q.ctx)}”</div>`+xTiles(q.L.o.map((o,k)=>[em(o.l),optChips(o,em(o.l)),o.l,()=>xPick(k)]))+`<small style="color:var(--mu)">❤️${Math.round(c.bond)} · 👆 กดค้าง = อ่านคำอธิบาย</small>`);
+  xMsg(`<div style="text-align:center;font-size:38px">${big}</div><div style="font-size:17px;line-height:1.55;margin:8px 0;text-align:center">${tmpl(q.L.q,q.ctx)}</div>`+xRows(q.L.o.map((o,k)=>{const ic=em(o.l),[t,sub]=xS(o.l);return{ic,t,sub,ch:optChips(o,ic),fn:()=>xPick(k)};}))+`<small style="color:var(--mu)">❤️ สนิท ${Math.round(c.bond)}</small>`);
   xStat();xBagUI();
 }
 function dxForkUI(){
   const q=XQ;if(dx().ai){XQ=null;return xResolve(q,null);}
-  xMsg(`<div style="font-size:14px"><b>🔀 ${S.depth}</b>${q.fog?' 🌫️':''}</div>`+xTiles(q.fk.map((t,i)=>{const h=q.fog||t==='sec';return [h?'❔':DXT[t][0],h||!dxUn(t)?'':xCh(['✨']),h?'ไม่รู้ว่าอะไรรออยู่':DXT[t][1]+' · '+DXD[t],()=>xPick(i)];}))+`<small style="color:var(--mu)">👆 กดค้าง = ดูคำอธิบาย</small>`);
+  xMsg(`<div style="font-size:18px;text-align:center"><b>🔀 ทางแยก ชั้น ${S.depth}</b>${q.fog?' 🌫️':''}</div><div style="text-align:center;color:var(--mu);font-size:14px">เลือกประตู ✨ = มีของที่ไม่เคยเห็น</div>`+xRows(q.fk.map((t,i)=>{const h=q.fog||t==='sec';return{ic:h?'❔':DXT[t][0],t:q.fog?'ประตูในหมอก':t==='sec'?'ผนังมีรอยแปลก':DXT[t][1],sub:q.fog?'ไม่รู้ว่าอะไรรออยู่':t==='sec'?'ลองสำรวจดูไหม?':DXD[t],ch:h||!dxUn(t)?'':xCh(['✨ ใหม่']),fn:()=>xPick(i)};})));
   xStat();xBagUI();
 }
 function dxShopUI(){
-  const q=XQ;xMsg(`<div style="font-size:14px"><b>🛒 ฿${Math.round(S.money)}</b></div>`+xTiles(q.shop.map((o,i)=>[o.ic,xCh(['฿'+o.p+(o.sold?' ✓':'')]),o.n,()=>dxBuy(i),o.sold||S.money<o.p]).concat([['🚪','','ออกจากร้าน',()=>dxLeave()]]))+`<div class="log">${q.msg}</div>`);xStat();xBagUI();
+  const q=XQ;xMsg(`<div style="font-size:18px;text-align:center"><b>🛒 ${q.nm}</b> · ฿${Math.round(S.money)}</div><div style="text-align:center;font-size:15px;margin:4px 0">${q.msg}</div>`+xRows(q.shop.map((o,i)=>({ic:o.ic,t:o.n,ch:xCh(['฿'+o.p+(o.sold?' ✓ ซื้อแล้ว':'')]),fn:()=>dxBuy(i),dis:o.sold||S.money<o.p})).concat([{ic:'🚪',t:'ออกจากร้าน',fn:()=>dxLeave()}])));xStat();xBagUI();
 }
 function xMilestone(){
   const c=S.c;if(dx().ai)return xMilestonePick(c.en<55?'camp':pk(['mystery','trial']));
-  const T=[['mystery','🔎',xCh(['💰?','🏺?']),'สำรวจร่องรอยลับ: มีโอกาสพบของโบราณและเบาะแส'],['camp','🏕️',xCh(['🔋+25','❤️+3']),'ตั้งแคมป์: ฟื้นพลัง +25 สนิท +3'],['trial','⚡',xCh(['⭐XP','💪?']),'ทดลองขีดจำกัด: ทดสอบค่าสเตตัสเพื่อรับ XP และโบนัส']];
-  xMsg(`<div style="font-size:14px"><b>🧭 ${S.depth}</b></div>`+xTiles(T.map(t=>[t[1],t[2],t[3],()=>xMilestonePick(t[0])])));xStat();xBagUI();
+  const T=[['mystery','🔎','สำรวจร่องรอย','มีโอกาสพบของโบราณ',['💰?','🏺?']],['camp','🏕️','ตั้งแคมป์','ฟื้นพลัง +25 สนิท +3',['🔋+25','❤️+3']],['trial','⚡','ทดลองขีดจำกัด','ทดสอบสเตตัสเพื่อรับ XP',['⭐XP','💪?']]];
+  xMsg(`<div style="font-size:18px;text-align:center"><b>🧭 จุดค้นพบ ชั้น ${S.depth}</b></div>`+xRows(T.map(t=>({ic:t[1],t:t[2],sub:t[3],ch:xCh(t[4]),fn:()=>xMilestonePick(t[0])}))));xStat();xBagUI();
 }
 // เหตุการณ์ทางแยกใหม่ (หลายตัวเลือก · บางอันเฉพาะพื้นที่)
 XL.push(
