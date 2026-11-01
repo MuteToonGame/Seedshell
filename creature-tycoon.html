@@ -137,6 +137,7 @@ h4{margin:0 0 10px;font-size:14px;color:var(--mu);}
   </div>
 </div>
 <script src="owl-art.js"></script>
+<script src="elephant-art.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const rnd=(a,b)=>a+Math.random()*(b-a), ri=(a,b)=>Math.floor(rnd(a,b+1)), pick=a=>a[ri(0,a.length-1)], cl=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
@@ -261,7 +262,7 @@ function startEgg(){
 function hatch(){
   clearInterval(T);
   const k=egg.hold>1800?'str':egg.taps>=10?'spd':'int', L=S.legacy, bo=L?L.bonus:0;
-  const c={seed:egg.seed,stage:1,br:null,str:4+bo,spd:4+bo,int:4+bo,hun:70,en:100,bond:50,age:0,max:60,act:null,name:pick(NAMES),
+  const c={seed:egg.seed,sp:rollSpecies(k),stage:1,br:null,str:4+bo,spd:4+bo,int:4+bo,hun:70,en:100,bond:50,age:0,max:60,act:null,name:pick(NAMES),
     trait:L&&Math.random()<0.7?L.trait:(Math.random()<0.6?pick(TR):null)};
   c[k]+=2; c.x=50;c.y=72;c.wx=null;c.at=false; S.c=c; c.soul=soulInit(c,L); soulHatch(c,L); S.legacy=null; S.tick=0; S.vis=null; S.discoveries={memories:[],counts:{},biomes:{},secretReady:false,unlocked:[]};
   switchScreen('home');
@@ -494,20 +495,35 @@ function anim(id,cls,ms){const e=$(id);if(!e)return;e.classList.remove(cls);void
 function fx(side,txt,cls){const a=$('fx');if(!a)return;const e=document.createElement('div');e.className='dmg '+cls;e.textContent=txt;e.style.left=(side==='e'?74:24)+'%';a.appendChild(e);setTimeout(()=>e.remove(),900);}
 
 const kindForm=c=>{const k=c.soul&&c.soul.ax?c.soul.ax.kind:0;return k<-15?'fierce':k>15?'kind':'neutral';};
-function owlKey(c){
-  if(c.stage===1)return 's1';
-  if(c.stage===2)return 's2'; // ยังไม่แตกสาย: ใช้นกฮูกไปก่อน จนกว่าช้าง/กระต่ายจะมา
-  if(c.br==='int')return c.stage===3?'s3_int':'s4_int_'+(c.k4||kindForm(c));
-  return null; // สายแรง/สายเร็ว ยังใช้ภาพเดิมชั่วคราว
+// สายพันธุ์: ตอนฟักไข่ กดค้าง→ช้าง · กดรัว→กระต่าย · ไม่กด→นกฮูก (โอกาส HATCH_BIAS ที่เหลือสุ่มสองตัวที่เหลือ) เก็บใน c.sp
+// กระต่ายยังไม่มีไฟล์ภาพ → ใช้ภาพเก่าไปก่อน (เติม rabbit-art.js แล้วจะใช้ภาพใหม่เอง)
+const HATCH_BIAS=0.7, SPECIES_BY_HATCH={str:'elephant',spd:'rabbit',int:'owl'};
+function rollSpecies(k){
+  const main=SPECIES_BY_HATCH[k]||'owl';
+  if(Math.random()<HATCH_BIAS)return main;
+  const o=Object.values(SPECIES_BY_HATCH).filter(x=>x!==main);return o[Math.floor(Math.random()*o.length)];
 }
-function owlSvg(c,key){
+function speciesOf(c){
+  if(c.sp)return c.sp;
+  const L=['owl','elephant'].filter(k=>window.ART&&ART[k]);if(!L.length)return 'owl'; // เซฟ/การ์ดเก่าที่ไม่มี sp: สุ่มจาก seed
+  return L[(Math.imul((c.seed||1)|0,2654435761)>>>16)%L.length];
+}
+function artPick(c){
+  if(c.stage===1)return ['owl','s1'];   // ไข่/ร่าง 1 ภาพเดียวกันทุกตัว
+  const sp=speciesOf(c);
+  if(!(window.ART&&ART[sp]))return null; // ยังไม่มีภาพสายพันธุ์นี้ → ภาพเดิม
+  const br=(c.br==='str'||c.br==='spd'||c.br==='int')?c.br:'int';
+  const key=c.stage===2?'s2':c.stage===3?'s3_'+br:'s4_'+br+'_'+(c.k4||kindForm(c));
+  return ART[sp].data[key]?[sp,key]:['owl',key];
+}
+function artSvg(c,sp,key){
   const x=(c.hun<20?'<text x="146" y="70" font-size="22">💧</text>':'')+(c.en<20?'<text x="26" y="60" font-size="20">💤</text>':'');
-  return `<svg viewBox="0 0 200 200" width="200" height="200" overflow="visible"><image href="${owlSrc(key,c.seed)}" width="200" height="200"/>${x}</svg>`;
+  return `<svg viewBox="0 0 200 200" width="200" height="200" overflow="visible"><image href="${ART[sp].src(key,c.seed)}" width="200" height="200"/>${x}</svg>`;
 }
 
 // --- Creature SVG (สีจาก seed, รูปร่างตามร่าง 1-4) ---
 function svg(c){
-  {const ok=owlKey(c);if(ok)return owlSvg(c,ok);}
+  {const p=artPick(c);if(p)return artSvg(c,p[0],p[1]);}
   const L=look(c.seed),st=c.stage,br=c.br,k=[0,.68,.85,1,1.12][st];
   const rx=62*k,ry=52*k,cy=164-ry,top=cy-ry,ex=14+8*k,ey=cy-8*k,er=c.en<20?3:(st===1?10:8);
   const B=L.body,D=L.dark,A=L.acc,G='#f5c542',X=100;
@@ -1248,7 +1264,7 @@ const eqP=L=>Math.round(300*Math.pow(1.35,L));
 const hs=t=>{let h=7;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))>>>0;return h.toString(36);};
 const pack=o=>{const j=JSON.stringify(o);return 'CT1.'+hs(j)+'.'+btoa(unescape(encodeURIComponent(j)));};
 function unpack(t){try{const m=String(t).trim().match(/^CT1\.(\w+)\.(\S+)$/);if(!m)return null;const j=decodeURIComponent(escape(atob(m[2])));return hs(j)===m[1]?JSON.parse(j):null;}catch(e){return null;}}
-const myCard=()=>{const c=S.c;return pack({t:'pet',id:String(c.seed),n:c.name,s:c.seed,g:c.stage,b:c.br||'str',r:c.trait||'',a:[Math.round(c.str),Math.round(c.spd),Math.round(c.int)]});};
+const myCard=()=>{const c=S.c;return pack({t:'pet',id:String(c.seed),n:c.name,s:c.seed,p:c.sp,g:c.stage,b:c.br||'str',r:c.trait||'',a:[Math.round(c.str),Math.round(c.spd),Math.round(c.int)]});};
 function cpTxt(id){const e=$(id);if(!e)return;e.select();try{navigator.clipboard.writeText(e.value);}catch(_){try{document.execCommand('copy');}catch(__){}}}
 // แขกมาฝึกที่ห้อง: เพื่อน NPC + สัตว์ของเพื่อนจริง
 function visTick(){
@@ -1282,7 +1298,7 @@ function checkDaily(){
 }
 // หน้าเพื่อน
 function guestRow(g){
-  return `<div class="log" style="display:flex;gap:8px;align-items:center"><div class="sv" style="width:44px;height:44px;flex:none">${svg({seed:g.s,stage:g.g,br:g.b,en:100})}</div><div style="flex:1;text-align:left"><b>${g.n}</b> ร่าง ${g.g} · 💪${g.a[0]} ⚡${g.a[1]} 🧠${g.a[2]}<br><small>มาฝึก ${g.visits||0} ครั้ง · ช่วยสู้ ${g.helps||0} · สะสม 💪${g.gain[0].toFixed(1)} ⚡${g.gain[1].toFixed(1)} 🧠${g.gain[2].toFixed(1)}</small></div><button class="btn" style="padding:4px 8px;font-size:11px" onclick="fcRep('${g.id}')">📤 รายงาน</button></div>`;
+  return `<div class="log" style="display:flex;gap:8px;align-items:center"><div class="sv" style="width:44px;height:44px;flex:none">${svg({seed:g.s,sp:g.p,stage:g.g,br:g.b,en:100})}</div><div style="flex:1;text-align:left"><b>${g.n}</b> ร่าง ${g.g} · 💪${g.a[0]} ⚡${g.a[1]} 🧠${g.a[2]}<br><small>มาฝึก ${g.visits||0} ครั้ง · ช่วยสู้ ${g.helps||0} · สะสม 💪${g.gain[0].toFixed(1)} ⚡${g.gain[1].toFixed(1)} 🧠${g.gain[2].toFixed(1)}</small></div><button class="btn" style="padding:4px 8px;font-size:11px" onclick="fcRep('${g.id}')">📤 รายงาน</button></div>`;
 }
 function openHub(){
   const c=S.c,d=S.dq;if(!c)return;
