@@ -44,7 +44,7 @@ h4{margin:0 0 10px;font-size:14px;color:var(--mu);}
 /* room */
 #room{position:relative;flex:1;min-height:0;border-radius:14px;overflow:hidden;border:1px solid var(--bd);}
 #roomBg{position:absolute;inset:0;background:linear-gradient(var(--wall) 0 38%,var(--bd) 38% 39%,var(--floor) 39% 100%);}
-#petName{position:absolute;top:6px;left:8px;font-size:11px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:2px 8px;z-index:50;pointer-events:none;}
+#petName{position:absolute;top:6px;left:8px;font-size:11px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:2px 8px;z-index:50;cursor:pointer;}
 .spot{position:absolute;transform:translate(-50%,-50%);width:21%;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px;background:var(--card);color:var(--tx);border:2px solid var(--bd);border-radius:14px;font:inherit;cursor:pointer;z-index:2;opacity:.92;}
 .spot .ic{font-size:26px;line-height:1;} .spot small{font-size:10px;}
 .spot.sel{border-color:var(--ac);box-shadow:0 0 0 3px rgba(232,131,58,.35);}
@@ -97,6 +97,8 @@ h4{margin:0 0 10px;font-size:14px;color:var(--mu);}
 .cd{width:100%;max-width:84px;aspect-ratio:3/4;border:2px solid var(--bd);border-radius:10px;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:32px;line-height:1.1;cursor:pointer;user-select:none;}
 .cd b{font-size:20px;}.cd.bk{background:repeating-linear-gradient(45deg,var(--ac),var(--ac) 6px,rgba(255,255,255,.25) 6px,rgba(255,255,255,.25) 12px);color:#fff;}
 .cd.sel{border-color:var(--ac);box-shadow:0 0 0 3px rgba(232,131,58,.4);transform:translateY(-4px);}.cd.w{border-color:var(--ok);}.cd.l{border-color:var(--bad);opacity:.8;}.vs{font-size:12px;min-height:18px;}
+@media(max-height:720px){.md{gap:7px;padding:14px;}#xHold{width:104px!important;height:104px!important;}#expUI .card{min-height:0!important;padding:8px;}#expUI .log{font-size:11px;}}
+.sv svg{width:100%!important;height:auto!important;display:block;}
 </style>
 </head>
 <body>
@@ -155,12 +157,13 @@ function loadGame(){
   let sv=null; try{sv=JSON.parse(store.get())}catch(e){}
   if(sv) S=Object.assign(S,sv);
   S.f=Object.assign({book:0,weight:0,tread:0,chef:0},S.f); S.b=null; S.discoveries=Object.assign({memories:[],counts:{},biomes:{},secretReady:false},S.discoveries||{}); S.discoveries.counts=Object.assign({},S.discoveries.counts); S.discoveries.biomes=Object.assign({},S.discoveries.biomes);
-  if(S.c){ if(S.c.x==null){S.c.x=50;S.c.y=72;} switchScreen('home'); startGameLoop(); checkDaily(); } else startEgg();
+  if(S.c){ if(S.c.x==null){S.c.x=50;S.c.y=72;} soulEnsure(); switchScreen('home'); startGameLoop(); checkDaily(); } else startEgg();
 }
 function resetGame(){ if(confirm('ต้องการเริ่มเกมใหม่ทั้งหมดใช่หรือไม่?')){ store.del(); location.reload(); } }
 
 // --- Helpers ---
-const log=t=>{S.log.unshift(t);S.log=S.log.slice(0,5);$('homeLog').innerHTML=S.log.map(x=>`<div>${x}</div>`).join('');};
+let EVL=null;
+const log=t=>{if(EVL)EVL.push(t);S.log.unshift(t);S.log=S.log.slice(0,5);$('homeLog').innerHTML=S.log.map(x=>`<div>${x}</div>`).join('');};
 const spend=n=>{S.money=Math.max(0,S.money-n);};
 const eff=(c,k)=>c[k]*(c.stage>=4?1.5:1);
 const lead=c=>['str','spd','int'].sort((a,b)=>c[b]-c[a])[0];
@@ -202,7 +205,7 @@ function hatch(){
   const k=egg.hold>1800?'str':egg.taps>=10?'spd':'int', L=S.legacy, bo=L?L.bonus:0;
   const c={seed:egg.seed,stage:1,br:null,str:4+bo,spd:4+bo,int:4+bo,hun:70,en:100,bond:50,age:0,max:60,act:null,name:pick(NAMES),
     trait:L&&Math.random()<0.7?L.trait:(Math.random()<0.6?pick(TR):null)};
-  c[k]+=2; c.x=50;c.y=72;c.wx=null;c.at=false; S.c=c; S.legacy=null; S.tick=0; S.vis=null; S.discoveries={memories:[],counts:{},biomes:{},secretReady:false,unlocked:[]};
+  c[k]+=2; c.x=50;c.y=72;c.wx=null;c.at=false; S.c=c; c.soul=soulInit(c,L); soulHatch(c,L); S.legacy=null; S.tick=0; S.vis=null; S.discoveries={memories:[],counts:{},biomes:{},secretReady:false,unlocked:[]};
   switchScreen('home');
   log(`🐣 ${c.name} ฟักออกมาแล้ว! ฐาน 4/4/4 + โบนัส 2 แต้มที่ ${BR[k].ic}`);
   startGameLoop();
@@ -215,7 +218,7 @@ function step(){
   const c=S.c; S.tick++; if(c.fierce>0)c.fierce--;
   c.hun-=c.trait==='ตะกละ'?3:2;
   if(S.f.chef&&c.hun<30&&S.money>=20){c.hun+=40;S.money-=20;log('👨‍🍳 เชฟป้อนข้าวให้');}
-  c.hun=cl(c.hun);
+  c.hun=cl(c.hun);soulStep(c);
   const hg=c.hun<20; c.bond=cl(c.bond+(hg?-1.5:0.3));
   if(!c.act)c.auto=false;
   if(c.act){
@@ -231,6 +234,7 @@ function step(){
 function autoPick(c){
   const m=c.trait==='ขยัน'?1.5:1;
   const w={read:m,lift:m,run:m,work:c.trait==='ขยัน'?1:0.5,rest:c.en<50?3:0.15};
+  soulWeights(c,w);
   if(c.en<20){w.read=w.lift=w.run=w.work=0;w.rest=5;}
   let r=Math.random()*Object.values(w).reduce((a,b)=>a+b,0),k='rest';
   for(const [a,v] of Object.entries(w)){if((r-=v)<=0){k=a;break;}}
@@ -244,14 +248,15 @@ function doAct(c){
   else if(a==='lift'){c.str+=m*(1+eqB(F.weight));c.en-=6;}
   else if(a==='run'){c.spd+=m*(1+eqB(F.tread));c.en-=6;}
   else if(a==='work'){S.money+=Math.round((10+(c.str+c.spd+c.int)/4)*(c.stage>=4?1.5:1));c.en-=7;}
-  else if(a==='rest'){c.en=cl(c.en+12);if(c.en>=100)c.act=null;}
-  if(a==='read'||a==='lift'||a==='run')qInc('train');else if(a==='work')qInc('work');
+  else if(a==='rest'){c.en=cl(c.en+12+(soulQ('sleepy')?4:0));if(c.en>=100)c.act=null;}
+  soulAct(c,a);if(a==='read'||a==='lift'||a==='run')qInc('train');else if(a==='work')qInc('work');
   c.en=cl(c.en);
 }
 function newDay(){
   const c=S.c; S.day++; c.age++;
   if(c.age>=c.max) return die();
   if(c.stage<3&&c.age>=EVO_AGE[c.stage+1]) return evolve();
+  soulDay(c);
   if(Math.random()<0.3) randEv();
 }
 // --- Discovery / Soul Memory ---
@@ -261,7 +266,7 @@ function recordMemory(kind, title, detail){
   const entry={kind,title,detail:detail||'',day:S.day,gen:S.gen,biome:BIO&&BIO[PX.bi||0]?PX.bi:0};
   D.memories.unshift(entry); D.memories=D.memories.slice(0,40);
   if(D.memories.length>=3)D.secretReady=true;
-  saveGame();
+  soulFromDisc(kind,title,detail);saveGame();
 }
 function discoveryProfile(){
   const c=S.c,D=S.discoveries||{counts:{},biomes:{}},n=D.counts||{};
@@ -288,16 +293,16 @@ function evolve(){
   const c=S.c;
   if(c.stage===1){c.stage=2;['str','spd','int'].forEach(x=>c[x]+=2);}
   else{const k=lead(c);c.br=k;c.stage=3;const secret=discoveryProfile();if(secret){c.secretForm=secret;unlockDiscovery('วิวัฒนาการ '+secret);['str','spd','int'].forEach(x=>c[x]+=x===k?5:2);}else{['str','spd','int'].forEach(x=>c[x]+=x===k?4:1);}}
-  S.evo=true; log('✨ '+c.name+' → ร่าง '+c.stage+' '+formName(c)); render(); saveGame();
+  soulEvo(c);S.evo=true; log('✨ '+c.name+' → ร่าง '+c.stage+' '+formName(c)); render(); saveGame();
 }
 function useCrystal(){
   const c=S.c; if(!c||c.stage!==3||S.crystal<1)return;
-  S.crystal--; c.stage=4; S.evo=true; if(c.secretForm){recordMemory('secret','ตำนาน '+c.secretForm,'วิวัฒนาการลับสมบูรณ์แล้ว');} log('🌟 ใช้ผลึก! '+c.name+' เป็น '+formName(c)); render(); saveGame();
+  S.crystal--; c.stage=4; soulEvo(c); S.evo=true; if(c.secretForm){recordMemory('secret','ตำนาน '+c.secretForm,'วิวัฒนาการลับสมบูรณ์แล้ว');} log('🌟 ใช้ผลึก! '+c.name+' เป็น '+formName(c)); render(); saveGame();
 }
 function closeEvo(){S.evo=false;render();saveGame();}
 function die(){
-  clearInterval(T); const c=S.c;
-  S.legacy={trait:c.trait||pick(TR),bonus:Math.round(Math.max(c.str,c.spd,c.int)*0.15),legend:c.secretForm||'',memories:(S.discoveries?.memories||[]).slice(0,3).map(x=>x.title)};
+  clearInterval(T); const c=S.c; soulDie(c);
+  S.legacy={pn:c.name,best:soulBest(c),soul:c.soul?{ax:Object.assign({},c.soul.ax)}:null,trait:c.trait||pick(TR),bonus:Math.round(Math.max(c.str,c.spd,c.int)*0.15),legend:c.secretForm||'',memories:(S.discoveries?.memories||[]).slice(0,3).map(x=>x.title)};
   S.over={c:c,L:S.legacy}; S.gen++; saveGame(); render();
 }
 
@@ -307,7 +312,7 @@ function randEv(){
   const n=S.c.name;
   const EV=[
     ()=>({t:`🧑‍💼 มีคนมาจ้าง ${n} ไปทำงานทั้งวัน ค่าจ้างงาม แต่เหนื่อยแน่`,a:[{l:'รับงาน (+฿250 · แรง -40)',f:()=>{S.money+=250;S.c.en=cl(S.c.en-40);log('รับจ้างได้ ฿250');}},{l:'ปฏิเสธ (สนิท +3)',f:()=>{S.c.bond=cl(S.c.bond+3);}}]}),
-    ()=>({t:'🐾 เจอสัตว์ประหลาดป่า ตัวหนึ่งเดินเข้ามา!',a:[{l:'ปล่อยให้ทักทาย',f:()=>{if(Math.random()<0.5+(S.c.bond-50)/200){S.money+=80;S.crystal++;log('ถูกคอ! ได้ของขวัญ ฿80 และ 💎1');}else{spend(60);log('กัดกัน! ค่ารักษา ฿60');}}},{l:'พาเดินหนี',f:()=>{}}]}),
+    ()=>({t:'🐾 เจอสัตว์ประหลาดป่าตัวหนึ่งเดินเข้ามาหา '+n+'!',a:[{l:'👋 ปล่อยให้ทักทาย (ลุ้นตามสนิท)',f:()=>{if(Math.random()<0.5+(S.c.bond-50)/200){S.money+=80;S.crystal++;log('🤝 มันดมๆ แล้วถูหัวเป็นมิตร ก่อนทิ้งของขวัญไว้ให้ ฿80 และ 💎1');}else{spend(60);S.c.bond=cl(S.c.bond-2);log('💢 มันหวงถิ่น! งับกันวุ่นวาย ต้องจ่ายค่ารักษา ฿60');}}},{l:'⚔️ สู้เลย! (ใช้พลัง 25 · เข้าโหมดต่อสู้)',f:()=>{if(S.c.en<25){S.c.bond=cl(S.c.bond-1);log('😮‍💨 เหนื่อยเกินกว่าจะสู้ ต้องรีบหลบไปก่อน');}else fight(1);}},{l:'🏃 พาเดินหนี (ใช้ความเร็ว)',f:()=>{if(Math.random()<cl(.4+eff(S.c,'spd')*.02,.25,.9))log('💨 วิ่งหนีทัน! มันไล่ตามอยู่พักหนึ่งก่อนยอมแพ้');else{S.c.en=cl(S.c.en-10);spend(30);log('😖 หนีไม่พ้น ถูกตะปบ! พลัง −10 · ค่ารักษา ฿30');}}}]}),
     ()=>({t:`🍱 เจ้าของคนอื่นยื่นข้าวให้ ${n}`,a:[{l:'ให้กิน (อิ่ม +40 · สนิทลด)',f:()=>{S.c.hun=cl(S.c.hun+40);S.c.bond=cl(S.c.bond-(S.c.trait==='ขี้หึง'?12:5));log('ติดใจเจ้าของใหม่…');}},{l:'ไม่ให้ (สนิท +2)',f:()=>{S.c.bond=cl(S.c.bond+2);}}]}),
     ()=>({t:`💎 ${n} คาบผลึกตำนานกลับมา!`,a:[{l:'เก็บไว้ (💎+1 · มันงอน สนิท -5)',f:()=>{S.crystal++;S.c.bond=cl(S.c.bond-5);log('ได้ผลึกตำนาน 💎 แต่มันงอนนิดหน่อย');}},{l:'ให้มันเล่นต่อ (สนิท +6 · ไม่ได้ผลึก)',f:()=>{S.c.bond=cl(S.c.bond+6);log('มันดีใจที่ได้เล่นของรัก');}}]}),
     ()=>({t:'🧳 พ่อค้าเร่เสนอขายผลึกตำนานราคาพิเศษ ฿900',a:[{l:'ซื้อ (฿900)',f:()=>{if(S.money>=900){S.money-=900;S.crystal++;log('ซื้อผลึกได้ 💎');}else log('เงินไม่พอ');}},{l:'ไม่สนใจ',f:()=>{}}]}),
@@ -324,7 +329,13 @@ function randEv(){
   ];
   S.ev=EV[ri(0,EV.length-1)](); render();
 }
-function choose(i){if(!S.ev)return;const f=S.ev.a[i].f;S.ev=null;f();render();saveGame();}
+function choose(i){
+  if(!S.ev)return;const e=S.ev,a=e.a[i],s0=xSnap();EVL=[];S.ev=null;
+  try{a.f();}finally{var L=EVL;EVL=null;}
+  render();saveGame();if(S.b)return;
+  const ch=xChips(s0);
+  xOv(`<div class="log" style="text-align:left">${e.t}</div><div class="card" style="text-align:left"><b>คุณเลือก:</b> ${a.l.replace(/\s*[(（].*$/,'')}<div style="margin-top:6px">${L.length?L.join('<br>'):'ไม่มีอะไรเกิดขึ้น เรื่องผ่านไปอย่างสงบ'}</div>${ch?`<div class="log" style="margin-top:6px">${ch}</div>`:''}</div><button class="btn on" onclick="closeX()">ตกลง</button>`);
+}
 
 // --- Shop ---
 const FUR=[['book','📚 ชั้นหนังสือ','เพิ่มผลอ่านหนังสือ'],['weight','🏋️ ดัมเบล','เพิ่มผลยกน้ำหนัก'],['tread','🏃 ลู่วิ่ง','เพิ่มผลการวิ่ง']];
@@ -370,7 +381,7 @@ function finishEat(){
   else if(k==='veg'){c.hun=cl(c.hun+25);c.bond=cl(c.bond+2);c.en=cl(c.en+5);setSay('🥬 กรุบๆ สุขภาพดี',2000);}
   else if(k==='milk'){c.hun=cl(c.hun+20);c.en=cl(c.en+15);c.fierce=0;setSay('🥛 อึ๊ก~ ใจเย็นลงแล้ว',2000);}
   else{c.hun=cl(c.hun+30);c.int+=1;setSay('🐟 อร่อย! รู้สึกฉลาดขึ้น',2000);}
-  log(f.ic+' กิน'+f.n+'หมดแล้ว');render();saveGame();
+  soulEat(c,k);log(f.ic+' กิน'+f.n+'หมดแล้ว');render();saveGame();
 }
 function play(){cardGame();}
 
@@ -384,8 +395,8 @@ function fight(t){
 function round(){
   const b=S.b,c=S.c; if(!b)return clearInterval(BT);
   const P=eff(c,'str')+eff(c,'spd')*0.7+eff(c,'int')*0.5;
-  const cr=Math.random()<0.1+eff(c,'int')*0.01;
-  const pd=Math.round((P*0.6+rnd(0,4))*b.buff*(cr?1.8:1)*(c.trait==='ตะกละ'?1.1:1)*(c.fierce>0?1.15:1));
+  const cr=Math.random()<0.1+eff(c,'int')*0.01+soulCrit(c);
+  const pd=Math.round((P*0.6+rnd(0,4))*b.buff*(cr?1.8:1)*(c.trait==='ตะกละ'?1.1:1)*(c.fierce>0?1.15:1)*soulFightMul(c,b));
   const ed=Math.round(b.E*0.6+rnd(0,4));
   const ad=b.al?Math.round(b.al*.6+rnd(0,3)):0;b.eh-=pd+ad;anim('fP','atkR',350);setTimeout(()=>{anim('fE','hit',350);fx('e','-'+pd,cr?'crit':'');},150);b.L.unshift((cr?'💥 คริติคอล! ':'')+c.name+' ตี '+pd+(b.buff>1?' (เชียร์!)':''));b.buff=1;if(ad)b.L.unshift(b.an+' ช่วยตี '+ad);
   if(b.eh<=0){b.eh=0;return endFight(1);}
@@ -394,7 +405,7 @@ function round(){
   updBattle();
 }
 function endFight(w){
-  clearInterval(BT);const b=S.b,c=S.c;b.end=w?1:2;
+  clearInterval(BT);const b=S.b,c=S.c;b.end=w?1:2;soulFight(w,b);
   if(b.xf)xFightEnd(w,b);else if(w){const r=[150,400,1000][b.t-1];S.money+=r;c.bond=cl(c.bond+5);b.L.unshift('🏆 ชนะ! รางวัล ฿'+r);}
   else{spend(60);c.bond=cl(c.bond-5);b.L.unshift('💀 แพ้… ค่ารักษา ฿60');}
   saveGame();render();const ko=$(w?'fE':'fP');if(ko)ko.classList.add('ko');updBattle();
@@ -500,14 +511,14 @@ let walking=false,sayTO;
 function buildSpots(){
   $('room').insertAdjacentHTML('beforeend',Object.entries(SPOTS).map(([k,s])=>`<button class="spot" id="sp-${k}" style="left:${s.sx}%;top:${s.sy}%" onclick="event.stopPropagation();tapSpot('${k}')"><span class="ic">${s.ic}</span><small>${s.sn}${s.f?' <b id="lv-'+k+'"></b>':''}</small><span class="vis" id="vs-${k}"></span></button>`).join(''));
 }
-const disPct=c=>{let p=cl((75-c.bond)/100,0,1);if(c.hun<20)p+=(1-p)*.5;if(c.fierce>0)p=Math.min(1,p+.1);return p;};
+const disPct=(c,k)=>{let p=cl((75-c.bond)/100,0,1);if(c.hun<20)p+=(1-p)*.5;if(c.fierce>0)p=Math.min(1,p+.1);return cl(p+(k?soulDis(c,k):0),0,1);};
 function setSay(t,ms){if(!S.c)return;S.c.say=t;clearTimeout(sayTO);sayTO=setTimeout(()=>{if(S.c){S.c.say=null;render();}},ms);}
 function hideBub(){$('spotBub').style.display='none';clearTimeout(selTO);}
 function roomTap(e){if(e.target.id==='roomBg'||e.target.id==='room'){sel=null;hideBub();hideFeed();render();}}
 function showBub(k){
   const s=SPOTS[k],c=S.c,m=c.trait==='ขยัน'?1.3:1,b=$('spotBub');
   const ef=k==='work'?`ได้เงิน ≈ ฿${Math.round((10+(c.str+c.spd+c.int)/4)*(c.stage>=4?1.5:1))}/ครั้ง`:k==='rest'?'ฟื้นพลัง +12/ครั้ง':`เพิ่ม ${STN[s.st]} +${(m*(1+eqB(S.f[s.f]))*(S.vis&&S.vis.k===k?1.25:1)).toFixed(1)}/ครั้ง`;
-  b.innerHTML=`<b>${s.ic} ${s.n}</b><br>${ef}${s.en?' · ใช้พลัง '+s.en:''}<br><small>โอกาสไม่ฟัง ~${Math.round(disPct(c)*100)}%</small><br><i>${c.act===k?'แตะอีกครั้งเพื่อยกเลิก':'แตะอีกครั้งเพื่อสั่งงาน'}</i>`;
+  b.innerHTML=`<b>${s.ic} ${s.n}</b><br>${ef}${s.en?' · ใช้พลัง '+s.en:''}<br><small>โอกาสไม่ฟัง ~${Math.round(disPct(c,k)*100)}%${soulDisNote(c,k)?' · '+soulDisNote(c,k):''}</small><br><i>${c.act===k?'แตะอีกครั้งเพื่อยกเลิก':'แตะอีกครั้งเพื่อสั่งงาน'}</i>`;
   b.style.left=cl(s.sx,34,66)+'%'; b.style.top=(s.sy<50?s.sy+11:s.sy-30)+'%'; b.style.display='block';
   clearTimeout(selTO); selTO=setTimeout(()=>{sel=null;hideBub();render();},5000);
 }
@@ -517,7 +528,7 @@ function tapSpot(k){
   if(sel!==k){sel=k;showBub(k);render();return;}
   sel=null;hideBub();
   if(c.act===k){c.act=null;c.at=false;setSay('โอเค พักก่อน',1500);}
-  else if(Math.random()<disPct(c)){
+  else if(Math.random()<disPct(c,k)){
     setSay('😤 ไม่ฟัง! ไม่เอา!',2500);log('😤 '+c.name+' ไม่ยอมฟัง!');
     if(Math.random()<(c.trait==='ซน'?0.5:0.25)){const b=ri(30,90);spend(b);log('ก่อเรื่อง! ค่าเสียหาย ฿'+b);}
     c.act=null;c.at=false;c.wx=null;
@@ -557,7 +568,7 @@ function render(){
   if(S.screen==='home'){
     const s=svg(c); if(s!==lastSvg){$('petSvg').innerHTML=s;lastSvg=s;}
     $('petSay').textContent=c.say||(S.food?(c.at?'🍽️ งั่มๆ':'หอมจัง!'):c.act&&!c.at?'กำลังเดินไป '+SPOTS[c.act].ic:say(c));
-    $('petName').textContent=`${c.name} · ร่าง ${c.stage} ${formName(c)}${c.trait?' · '+c.trait:''}${c.fierce>0?' · 😠ดุ':''}${c.hurt>S.day?' · 🩹บาดเจ็บ':''}`;
+    $('petName').textContent=`${c.name} · ร่าง ${c.stage} ${formName(c)}${c.trait?' · '+c.trait:''}${c.fierce>0?' · 😠ดุ':''}${c.hurt>S.day?' · 🩹บาดเจ็บ':''}${c.soul?' · 📔'+(c.soul.unread?' ใหม่ '+c.soul.unread:''):''}`;
     $('petBars').innerHTML=bar('อิ่ม',c.hun,'var(--ac)')+bar('พลัง',c.en,'var(--blue)')+bar('สนิท',c.bond,'var(--pink)')+bar('อายุ',c.age/c.max*100,'var(--mu)');
     $('petStats').innerHTML=`<span>💪 ${Math.floor(eff(c,'str'))}</span><span>⚡ ${Math.floor(eff(c,'spd'))}</span><span>🧠 ${Math.floor(eff(c,'int'))}</span><span>💎 ${S.crystal}</span>`;
     Object.entries(SPOTS).forEach(([k,sp])=>{const e=$('sp-'+k);if(!e)return;e.className='spot'+(c.act===k?' on':'')+(sel===k?' sel':'');if(sp.f)$('lv-'+k).textContent='Lv'+S.f[sp.f];const vs=$('vs-'+k);if(vs)vs.textContent=S.vis&&S.vis.k===k?S.vis.w.ic:'';});
@@ -675,11 +686,11 @@ function xChips(s0){
   if(S.crystal>s0.g)p.push('💎+'+(S.crystal-s0.g));
   [['str','💪'],['spd','⚡'],['int','🧠']].forEach(([k,i])=>{if(c[k]>s0[k])p.push(i+'+'+(c[k]-s0[k]));});
   if(d(c.bond,s0.b))p.push('❤️'+(c.bond>s0.b?'+':'')+d(c.bond,s0.b));
-  if(d(c.en,s0.e)>-1&&d(c.en,s0.e)!==0)p.push('🔋+'+d(c.en,s0.e));
-  if(c.lv>s0.lv)p.push('⭐ เลเวลอัป! Lv'+c.lv);
+  if(d(c.en,s0.e))p.push('🔋'+(c.en>s0.e?'+':'')+d(c.en,s0.e));if(d(c.hun,s0.h))p.push('🍖'+(c.hun>s0.h?'+':'')+d(c.hun,s0.h));
+  if(c.soul&&c.soul.unread>(s0.u||0))p.push('📔 จดความทรงจำ');if(c.lv>s0.lv)p.push('⭐ เลเวลอัป! Lv'+c.lv);
   return p.join(' · ');
 }
-const xSnap=()=>{const c=S.c;return{m:S.money,g:S.crystal,str:c.str,spd:c.spd,int:c.int,b:c.bond,e:c.en,lv:c.lv||1};};
+const xSnap=()=>{const c=S.c;return{m:S.money,g:S.crystal,str:c.str,spd:c.spd,int:c.int,b:c.bond,e:c.en,h:c.hun,lv:c.lv||1,u:c.soul?c.soul.unread:0};};
 // ใช้ผลลัพธ์ 1 อัน → คืนข้อความ (เงิน/สเตตัส/สนิท/พลัง/บาดเจ็บ/NPC/ของ)
 function xfx(o,ctx,ic,tt,choice){
   const c=S.c,B=BIO[PX.bi],r=Math.random,m0=S.money,g0=S.crystal;
@@ -696,14 +707,14 @@ function xfx(o,ctx,ic,tt,choice){
     if((o.b||0)>=3){recordMemory('bond','สร้างมิตรภาพ',tmpl(o.x,ctx));}
     const k=.45*B.lm*(1+(c.stage-2)*.25)*(1+S.depth*.06);
     if(o.m)S.money+=o.m>0?Math.round(o.m*k):o.m;
-    if(o.g&&r()<o.g*(1+S.depth*.05))S.crystal++;
+    if(o.g&&r()<o.g*(1+S.depth*.05)*(soulQ('lucky')?1.5:1))S.crystal++;
     if(o.s)c[o.s]+=o.a||1;
     c.bond=cl(c.bond+(o.b||0));if(o.e)c.en=cl(c.en+o.e,0,100);
     if(o.h&&r()<o.h*B.dg*(1+S.depth*.04))hurt=1;
-    const nn=o.n;if(nn){const p=newNpc(nn);np=p.ic+p.n;}
+    const nn=o.n;if(nn){const p=newNpc(nn);np=p.ic+p.n;if(nn==='f'&&c.soul)soulFriend(p.n,p.ic,'help');}
     if(o.it)extra+=giveItem();
   }else{c.bond=cl(c.bond-1);if(r()<.4)hurt=1;}
-  if(S.money<0)S.money=0;
+  soulEvent(o,ok,hurt);if(S.money<0)S.money=0;
   if(hurt){if(S.items.shield>0){S.items.shield--;extra+=' · 🛡️ โล่กันบาดเจ็บไว้ได้';}else{c.hurt=S.day+4;extra+=' · 🩹 บาดเจ็บ';}}
   const sc=(S.money-m0)/100+(S.crystal-g0)*4+(np?2:0)+(hurt?2:0)+(ok?0:1.5);
   const t=ic+' '+tmpl(o.x,ctx)+(o.c?(ok?' ✓':' 💢'):'')+(np?` · พบ ${np}`:'')+extra;
@@ -775,17 +786,17 @@ function xGo(){
 }
 function xPick(k){const q=XQ;if(!q)return;XQ=null;xResolve(q,k);}
 function xResolve(q,ch){
-  const c=S.c,L=q.L,own=L.d[c.trait]??L.d._;let pick=ch,pre='';
+  const c=S.c,L=q.L,own=soulPick(L,c);let pick=ch,pre='';
   if(ch==null){pick=own;pre='⏳ '+c.name+'ตัดสินใจเอง: ';}
-  else if(own!==ch&&Math.random()>cl(.35+c.bond*.006-(c.trait==='ซน'?.15:0),.2,.97)){pick=own;pre='😤 '+c.name+'ไม่ฟัง! ทำตามใจ: ';}
-  if(L.o[pick].f)return xFight(q.f);
+  else if(own!==ch&&Math.random()>soulObey(c,L.o[ch],cl(.35+c.bond*.006-(c.trait==='ซน'?.15:0),.2,.97))){pick=own;pre=soulDefy(c,L.o[ch]);}
+  soulDecision(c,L,ch,pick);if(L.o[pick].f)return xFight(q.f);
   const o=Object.assign({},L.o[pick]);o.x=pre+o.x;
   const t=xfx(o,q.ctx,'✉️',L.ti,1);gainXp(10);const ch2=xChips(q.s0);
   xMsg(`<div>${t}</div>${ch2?`<div class="log" style="margin-top:6px">${ch2}</div>`:''}`);
   xAfter();
 }
 const EI=[{id:'rice',ic:'🍙',n:'ข้าวปั้น',e:25,p:90},{id:'juice',ic:'🧃',n:'น้ำเกลือแร่',e:50,p:170},{id:'meat',ic:'🍖',n:'เนื้อย่าง',e:100,p:320}],BAGMAX=6;
-const xCost=()=>8+Math.floor(S.depth/5),bagN=()=>EI.reduce((a,i)=>a+(S.bag[i.id]||0),0);
+const xCost=()=>8+Math.floor(S.depth/5)+(soulQ('homebody')?1:0)-(soulQ('wanderer')?1:0),bagN=()=>EI.reduce((a,i)=>a+(S.bag[i.id]||0),0);
 function bagAdd(id){if(bagN()>=BAGMAX)return 0;S.bag[id]=(S.bag[id]||0)+1;return 1;}
 function xBagUI(){
   const e=$('xBag'),c=S.c;if(!e||!c)return;const n=bagN(),b=(f)=>`<div class="g" style="grid-template-columns:repeat(3,1fr)">${EI.map(f).join('')}</div>`;
@@ -856,7 +867,7 @@ function xChallenge(boss){
   ctx.foe=B.m;
   const f={ic,name:boss?'เจ้าแห่ง'+B.m:B.m,boss:boss?1:0};
   const o=[{l:'⚔️ สู้เลย!',f:1}];
-  if(!boss)o.push({l:'🏃 หนี (ใช้ความเร็ว)',x:'{n}วิ่งหนี{foe}สุดชีวิต',c:'spd',e:-5});
+  if(!boss)o.push({l:'🏃 หนี (ใช้ความเร็ว)',x:'{n}วิ่งหนี{foe}สุดชีวิต',c:'spd',e:-5,fl:1});
   o.push({l:`💰 จ่ายค่าผ่านทาง (฿${pay})`,x:boss?'{n}โยนถุงเงินให้ผู้คุมทาง มันเลยหลีกทางให้':'{n}โยนเหรียญให้{foe} มันเลยหลีกทางให้',m:-pay});
   const L={ti:boss?'ศึกบอสชั้น '+D:'ศึกกับ'+B.m,q:boss?`👑 ชั้น ${D}! เจ้าแห่ง${B.m}ปรากฏตัวขวางทางลงลึก!`:`${ic} ${B.m}ขวางทาง แยกเขี้ยวท้าสู้! 👊`,d:{'ขยัน':boss?0:1,_:0},o};
   XQ={L,ctx,s0:xSnap(),f};xAsk();
@@ -921,7 +932,7 @@ function visTick(){
   const tip=Math.round(15+L*12);S.money+=tip;c.bond=cl(c.bond+1);S.hostN=(S.hostN||0)+1;
   log(`${v.w.ic} ${v.w.n} ฝึกที่${sp.sn} Lv${L} เสร็จแล้ว ทิปให้ ฿${tip}`);
   if(v.w.t==='n'){const p=S.npcs.find(x=>x.n===v.w.n);if(p)p.met++;}else{const g=S.guests.find(x=>x.id===v.w.id);if(g)g.visits=(g.visits||0)+1;}
-  qInc('visit');S.vis=null;
+  soulVisit(v.w,sp);qInc('visit');S.vis=null;
 }
 // เควสต์รายวัน + เช็กอินต่อเนื่อง
 const QP=[{k:'train',t:'ฝึกที่อุปกรณ์',need:12,r:150},{k:'dive',t:'ลงลึกในการสำรวจ (ชั้น)',need:12,r:200},{k:'win',t:'ชนะศึกในการสำรวจ',need:2,r:250},{k:'visit',t:'ให้เพื่อนมาฝึกที่ห้อง',need:1,r:200},{k:'work',t:'รับจ้างหาเงิน',need:6,r:120},{k:'play',t:'เล่นไพ่กับสัตว์',need:3,r:130}];
@@ -939,7 +950,7 @@ function checkDaily(){
 }
 // หน้าเพื่อน
 function guestRow(g){
-  return `<div class="log" style="display:flex;gap:8px;align-items:center"><div style="width:44px;height:44px;flex:none">${svg({seed:g.s,stage:g.g,br:g.b,en:100})}</div><div style="flex:1;text-align:left"><b>${g.n}</b> ร่าง ${g.g} · 💪${g.a[0]} ⚡${g.a[1]} 🧠${g.a[2]}<br><small>มาฝึก ${g.visits||0} ครั้ง · ช่วยสู้ ${g.helps||0} · สะสม 💪${g.gain[0].toFixed(1)} ⚡${g.gain[1].toFixed(1)} 🧠${g.gain[2].toFixed(1)}</small></div><button class="btn" style="padding:4px 8px;font-size:11px" onclick="fcRep('${g.id}')">📤 รายงาน</button></div>`;
+  return `<div class="log" style="display:flex;gap:8px;align-items:center"><div class="sv" style="width:44px;height:44px;flex:none">${svg({seed:g.s,stage:g.g,br:g.b,en:100})}</div><div style="flex:1;text-align:left"><b>${g.n}</b> ร่าง ${g.g} · 💪${g.a[0]} ⚡${g.a[1]} 🧠${g.a[2]}<br><small>มาฝึก ${g.visits||0} ครั้ง · ช่วยสู้ ${g.helps||0} · สะสม 💪${g.gain[0].toFixed(1)} ⚡${g.gain[1].toFixed(1)} 🧠${g.gain[2].toFixed(1)}</small></div><button class="btn" style="padding:4px 8px;font-size:11px" onclick="fcRep('${g.id}')">📤 รายงาน</button></div>`;
 }
 function openHub(){
   const c=S.c,d=S.dq;if(!c)return;
@@ -967,7 +978,7 @@ function fcAdd(){
     if(o.to!==String(c.seed))return hubMsg('⛔ รายงานนี้ไม่ใช่ของสัตว์ตัวนี้');
     if(S.reps.includes(o.rid))return hubMsg('⛔ รายงานนี้ใช้ไปแล้ว');
     const g=(o.g||[]).map(x=>Math.max(0,Math.min(6,+x||0)));if(g.length!==3)return hubMsg('⛔ รายงานไม่ถูกต้อง');
-    c.str+=g[0];c.spd+=g[1];c.int+=g[2];S.reps=[o.rid,...S.reps].slice(0,40);saveGame();render();openHub();
+    c.str+=g[0];c.spd+=g[1];c.int+=g[2];soulReport(g);S.reps=[o.rid,...S.reps].slice(0,40);saveGame();render();openHub();
     return hubMsg(`🏋️ ${c.name}กลับมาจากห้องฝึกเพื่อน 💪+${g[0].toFixed(1)} ⚡+${g[1].toFixed(1)} 🧠+${g[2].toFixed(1)}`);
   }
   hubMsg('⛔ ไม่รู้จักรหัสนี้');
@@ -1012,9 +1023,257 @@ function cgEnd(g){
   const w=g.r.filter(x=>x>0).length;
   if(w>=2){const n=S.cwin=(S.cwin||0)+1,b=4+Math.min(3,n-1);c.bond=cl(c.bond+b);g.msg=`🎉 ชนะ ${w}-${3-w}! สนิท +${b}${n>1?` (ชนะติดกัน ${n} ครั้ง)`:''}`;setSay('เก่งจัง! 😆',2000);log('🃏 ชนะไพ่ สนิท +'+b);}
   else{S.cwin=0;c.en=cl(c.en-10);g.msg=`😵 แพ้ ${w}-${3-w}… ${c.name}เล่นจนเหนื่อย พลัง −10 (สนิทไม่ลด)`;setSay('เอาใหม่นะ~ 😏',2000);log('🃏 แพ้ไพ่ พลัง −10');}
-  qInc('play');render();saveGame();if($('cgRoot')&&CG===g)cgUI();
+  soulCard(w);qInc('play');render();saveGame();if($('cgRoot')&&CG===g)cgUI();
 }
-window.onload=()=>{buildSpots();loadGame();};
+// ===== Soul Memory: บุคลิก + ความทรงจำ + สมุดบันทึก =====
+// แกนบุคลิก 3 แกน (-100..100) เริ่มจาก seed ของไข่ แล้วเปลี่ยนไปตามประสบการณ์และการตัดสินใจของเจ้าของ
+const AXN={bold:['ขี้ตื่น','กล้าหาญ'],kind:['เห็นแก่ตัว','ใจดี'],play:['จริงจัง','ขี้เล่น']};
+const ARCH={
+ '+++':['🦸','ฮีโร่จอมซน'],'++-':['🛡️','อัศวินใจดี'],'+-+':['🎲','ตัวป่วนสายเสี่ยง'],'+--':['🐺','นักล่าเลือดเย็น'],
+ '-++':['🌼','เด็กน้อยสดใส'],'-+-':['🕯️','ผู้ดูแลเงียบๆ'],'--+':['🦊','จอมแสบขี้ตื่น'],'---':['🌑','นักเก็บตัวระแวง']};
+const QK={sleepy:['😪','ขี้เซา','พักฟื้นพลังไวกว่าปกติ และชอบเข้านอน'],foodie:['🍖','หนักกิน','กินอะไรก็อิ่มเพิ่ม +8'],
+ proud:['😤','รักศักดิ์ศรี','ชนะแล้วสนิทเพิ่ม แต่แพ้แล้วเสียใจหนัก'],homebody:['🏠','ติดบ้าน','อยู่บ้านแล้วสนิทเพิ่มช้าๆ แต่ออกสำรวจเหนื่อยกว่า'],
+ wanderer:['🧭','ชอบเที่ยว','ออกสำรวจเปลืองพลังน้อยลง แต่เบื่อเมื่ออยู่เฉยๆ'],lucky:['🍀','ดวงดี','เจอผลึกง่ายขึ้นในการสำรวจ']};
+// คำพูดของสัตว์ต่อเหตุการณ์เดียวกัน เปลี่ยนไปตามบุคลิกเด่นสุด (B=กล้า K=ใจดี P=ขี้เล่น, + / - = ทิศทางของแกน)
+const REACT={
+ win:{'B+':'ใครมาก็เอาอยู่! ฉันแกร่งที่สุด','B-':'ชนะแล้วเหรอ… ขายังสั่นอยู่เลย แต่ดีใจจัง','K+':'ดีใจที่ไม่มีใครเจ็บเกินไป','K-':'ของรางวัลเป็นของฉันคนเดียวนะ','P+':'สนุกมาก! ขออีกรอบ!','P-':'ผลลัพธ์เป็นไปตามแผน'},
+ lose:{'B+':'ครั้งหน้าฉันไม่แพ้อีกแน่!','B-':'เจ็บ… ไม่อยากสู้อีกแล้ว','K+':'ขอโทษนะเจ้าของ ที่ทำให้ผิดหวัง','K-':'มันโกงแน่ๆ ไม่ใช่ความผิดฉัน','P+':'แพ้ก็ตลกดีนะ ฮ่าๆ… แต่เจ็บนิดนึง','P-':'จดความผิดพลาดไว้ จะไม่พลาดซ้ำ'},
+ boss:{'B+':'ตัวใหญ่แค่ไหนก็ไม่กลัว!','B-':'ใหญ่มาก… แต่ฉันยังยืนอยู่ได้','K+':'ฉันสู้เพื่อทุกคนที่ผ่านทางนี้','K-':'ถ้าชนะ สมบัติทั้งหมดเป็นของฉัน','P+':'เหมือนเล่นด่านบอสเลย!','P-':'ศึกนี้ต้องวางแผนทุกก้าว'},
+ help:{'B+':'ใครรังแกเพื่อน เจอฉันก่อน!','B-':'ใจสั่นนะ แต่ทิ้งไม่ลงจริงๆ','K+':'รอยยิ้มของเขาคือรางวัลที่ดีที่สุด','K-':'ช่วยก็ได้… แต่เขาต้องจำไว้ว่าติดหนี้ฉัน','P+':'ได้เพื่อนใหม่แล้ว! ไปเล่นกันเถอะ','P-':'ช่วยเหลือกันคือหน้าที่'},
+ friend:{'B+':'มาซ้อมด้วยกัน ใครแพ้เลี้ยงข้าว!','B-':'ยืนข้างๆ กันแล้วอุ่นใจดี','K+':'อยากแบ่งทุกอย่างให้เขาเลย','K-':'ใช้ของฉันได้… แต่ห้ามทำพัง','P+':'มีเพื่อนวิ่งด้วยสนุกที่สุด!','P-':'ฝึกกับคนอื่นก็ได้ประสบการณ์อีกแบบ'},
+ evolve:{'B+':'พลังล้นเลย ขอไปลองสู้หน่อย!','B-':'ตัวเปลี่ยนไปหมด… ยังไม่ชินเลย','K+':'อยากให้เจ้าของภูมิใจ','K-':'ตัวฉันดูดีขึ้นอีกแล้ว ฮึ','P+':'ตัวใหม่! อยากลองท่าใหม่ทุกท่า','P-':'พัฒนาการเป็นไปตามเป้าหมาย'},
+ hunger:{'B+':'หิวขนาดนี้ จะออกไปหาเองก็ได้!','B-':'ท้องร้อง… เจ้าของลืมฉันไปแล้วหรือเปล่า','K+':'ไม่เป็นไรนะ เจ้าของคงยุ่งอยู่','K-':'ทำไมต้องให้ฉันรอ! ไม่พอใจ!','P+':'ท้องร้องเป็นเพลงเลย','P-':'จดไว้ว่าวันนี้ได้กินช้า'},
+ skip:{'B+':'ไม่มีเวลามัวเสียเวลา','B-':'กลัวเกินกว่าจะเข้าไปยุ่ง','K+':'ใจหายนิดๆ ที่ไม่ได้ช่วย','K-':'ไม่ใช่เรื่องของฉัน','P+':'เดี๋ยวก็ลืมเอง… ใช่ไหมนะ','P-':'เลือกแล้วก็ต้องยอมรับผล'},
+ defy:{'B+':'ไม่ต้องห้าม ฉันรู้ว่าต้องทำอะไร','B-':'ขอโทษ… ทำตามไม่ไหวจริงๆ','K+':'ใจฉันบอกให้ทำแบบนี้','K-':'ฉันอยากได้แบบนี้มากกว่า','P+':'อยากลองแบบที่ตัวเองสนุกกว่า','P-':'ฉันมีเหตุผลของฉัน เจ้าของแค่ไม่รู้'}};
+const rd1=v=>Math.round(v);
+const soulQ=id=>!!(S.c&&S.c.soul&&S.c.soul.q.includes(id));
+const plainName=s=>String(s||'').replace(/[\u{1F000}-\u{1FFFF}\u2600-\u27BF\uFE0F]/gu,'').replace(/\(เพื่อนจริง\)/,'').trim();
+function soulInit(c,L){
+  const r=rng((c.seed||1)*7+13),ax={bold:(r()-.5)*90,kind:(r()-.5)*90,play:(r()-.5)*90};
+  if(L&&L.soul&&L.soul.ax)['bold','kind','play'].forEach(k=>{ax[k]=ax[k]*.7+L.soul.ax[k]*.3;});
+  const ids=Object.keys(QK),q=[];while(q.length<2){const i=ids[Math.floor(r()*ids.length)];if(!q.includes(i))q.push(i);}
+  return{ax,q,j:[],w:0,l:0,ws:0,ls:0,act:{},food:{},fr:{},fear:{},grudge:{},defy:0,hung:-99,fav:null,ff:null,unread:0,tip:0};
+}
+function soulShift(d){const c=S.c;if(!c||!c.soul)return;Object.keys(d).forEach(k=>{c.soul.ax[k]=Math.max(-100,Math.min(100,c.soul.ax[k]+d[k]));});}
+function soulGroup(c){const A=c.soul.ax;let best='bold',m=-1;['bold','kind','play'].forEach(k=>{const a=Math.abs(A[k])+Math.random()*6;if(a>m){m=a;best=k;}});
+  return {bold:'B',kind:'K',play:'P'}[best]+(A[best]>=0?'+':'-');}
+function soulReact(c,key){const t=REACT[key];return t?t[soulGroup(c)]:'';}
+function soulArch(c){const A=c.soul.ax;return ARCH[(A.bold>=0?'+':'-')+(A.kind>=0?'+':'-')+(A.play>=0?'+':'-')];}
+function soulMem(k,t,w,ic,rx){
+  const c=S.c;if(!c||!c.soul)return;const so=c.soul;
+  so.j.unshift({d:S.day,k,ic:ic||'📝',t,w:w||1,r:rx?soulReact(c,rx):''});so.unread=(so.unread||0)+1;
+  if(so.j.length>70){let idx=so.j.length-1,mw=9;for(let i=so.j.length-1;i>=20;i--){if(so.j[i].w<mw){mw=so.j[i].w;idx=i;}}so.j.splice(idx,1);}
+  if((w||1)>=3)setSay('📔 จดไว้แล้ว!',1800);
+}
+function soulBest(c){const so=c&&c.soul;if(!so||!so.j.length)return '';const e=so.j.reduce((a,b)=>b.w>a.w?b:a,so.j[0]);return e.ic+' '+e.t;}
+function soulEnsure(){
+  const c=S.c;if(!c||c.soul)return;c.soul=soulInit(c,null);
+  const old=((S.discoveries&&S.discoveries.memories)||[]).slice(0,6).reverse();
+  soulMem('wake',c.name+'ได้รับสมุดบันทึกเล่มแรก เรื่องราวจากนี้จะถูกจดไว้',3,'📔',null);
+  old.forEach(m=>soulMem('old',m.title+(m.detail?' — '+m.detail:''),2,'📜',null));
+}
+function soulHatch(c,L){
+  const a=soulArch(c);
+  soulMem('birth',c.name+'ลืมตาครั้งแรก ฐาน 4/4/4 — ยังไม่รู้เลยว่าจะโตมาเป็นแบบไหน',3,'🥚',null);
+  c.soul.j[0].r='ฉันรู้สึกว่าตัวเองเป็นพวก “'+a[1]+'”';
+  if(L&&L.pn)soulMem('echo','ในความฝัน ได้ยินเสียงสะท้อนของ '+L.pn+' รุ่นก่อน'+(L.best?' — '+L.best:''),3,'🌙',null);
+}
+function soulEvo(c){soulMem('evolve',c.name+' วิวัฒนาการเป็นร่าง '+c.stage+' '+formName(c),c.stage>=3?4:3,'✨','evolve');}
+function soulDie(c){
+  const so=c.soul;if(!so)return;
+  soulMem('death',c.name+'ใช้ชีวิตครบ '+c.max+' วัน · ชนะ '+so.w+' แพ้ '+so.l+' · มีเพื่อน '+Object.keys(so.fr).length+' คน',5,'🪦',null);
+  const a=soulArch(c);S.past=S.past||[];
+  S.past.unshift({n:c.name,g:S.gen,seed:c.seed,st:c.stage,ic:a[0],ti:a[1],best:soulBest(c),w:so.w,l:so.l,fr:Object.keys(so.fr).length,q:so.q.map(x=>QK[x][0]+QK[x][1])});
+  S.past=S.past.slice(0,12);
+}
+// --- ตัวเลือก: บุคลิกตัดสินใจเอง ---
+function optLean(o){if(o.f)return .9;if(o.fl)return -.55;if(o.c==='?')return .35;if(o.c)return .8;if((o.m||0)<0)return -.25;return -.7;}
+const optHelp=o=>(o.n==='f'||(o.b||0)>=3)?1:((o.b||0)<0?-1:0);
+function soulPick(L,c){
+  const A=c.soul?c.soul.ax:{bold:0,kind:0,play:0},own=L.d?(L.d[c.trait]??L.d._):0;let best=0,bs=-1e9;
+  L.o.forEach((o,i)=>{const lean=optLean(o),h=optHelp(o),greed=(o.m||0)>=150?1:0,game=o.c==='?'?1:0;
+    const sc=A.bold/100*lean*2+A.kind/100*h*1.6+(A.kind<0?-A.kind/100*greed*1.2:0)+A.play/100*game*1.2+(own===i?.6:0)+Math.random()*.5;
+    if(sc>bs){bs=sc;best=i;}});
+  return best;
+}
+function soulMis(c,o){return -(c.soul.ax.bold/100)*optLean(o);}
+function soulObey(c,o,base){
+  const so=c.soul;if(!so)return base;let p=base+(so.ws>=3?.05:0)-(so.ls>=2?.08:0);const mis=soulMis(c,o);
+  p-=Math.max(0,mis)*.35;p+=Math.max(0,-mis)*.1;if((o.b||0)<0&&so.ax.kind>20)p-=.2;
+  return Math.max(.1,Math.min(.98,p));
+}
+function soulDefy(c,o){
+  const so=c.soul;if(!so)return '😤 '+c.name+'ไม่ฟัง! ทำตามใจ: ';const mis=soulMis(c,o);
+  if(mis>.25)return so.ax.bold<0?'😰 '+c.name+'ขี้ตื่นเกินกว่าจะทำตาม! ทำตามใจ: ':'😤 '+c.name+'กล้าเกินกว่าจะถอย! ทำตามใจ: ';
+  if(so.ax.kind>20&&(o.b||0)<0)return '💗 '+c.name+'ใจอ่อนเกินกว่าจะเดินผ่าน! ทำตามใจ: ';
+  return '😤 '+c.name+'ไม่ฟัง! ทำตามใจ: ';
+}
+function soulDecision(c,L,ch,pick){
+  const so=c.soul;if(!so)return;const o=L.o[pick],lean=optLean(o),h=optHelp(o),defy=ch!=null&&pick!==ch,mul=(ch==null||defy)?3:1.5;
+  soulShift({bold:lean*mul,kind:h*mul*1.3,play:(o.c==='?'?1.5:0)*mul/2});
+  if(defy){so.defy++;if(so.defy===1||so.defy%4===0)soulMem('defy',c.name+'ตัดสินใจเองในเหตุการณ์ “'+L.ti+'” ไม่ทำตามเจ้าของ',2,'😤','defy');}
+  else if(h<0)soulMem('skip',c.name+'เดินผ่านเหตุการณ์ “'+L.ti+'” ไปเฉยๆ',2,'🙈','skip');
+}
+function soulEvent(o,ok,hurt){
+  const c=S.c,so=c&&c.soul;if(!so)return;
+  if(o.c&&!ok&&Math.random()<.6){soulShift({bold:-2});soulMem('fail','พลาดบททดสอบ: '+tmpl(o.x,xctx()).replace(/^[^ ]*/,'').slice(0,40),2,'💢','lose');}
+  else if(hurt&&Math.random()<.7)soulMem('hurt',c.name+'บาดเจ็บระหว่างสำรวจ ต้องพักหลายวัน',2,'🩹','lose');
+  if(ok&&o.c&&o.c!=='?')soulShift({bold:1});
+}
+function soulFromDisc(kind,title,detail){
+  const c=S.c,so=c&&c.soul;if(!so)return;const t=title+(detail?' — '+detail:'');
+  if(kind==='relic'){soulMem('relic',t,so.j.some(e=>e.k==='relic')?1:3,'🏺',null);}
+  else if(kind==='brave'&&Math.random()<.3){soulShift({bold:1});soulMem('brave',t,1,'💪',null);}
+  else if(kind==='bond'&&Math.random()<.6){soulShift({kind:1});soulMem('camp',t,2,'🏕️',null);}
+  else if(kind==='secret'){soulMem('secret',t,3,'🔎',null);}
+}
+// --- เพื่อน ---
+function soulFriend(name,ic,how,real){
+  const c=S.c,so=c&&c.soul;if(!so||!name)return;const f=so.fr[name]||(so.fr[name]={ic,n:0,real:!!real});f.n++;if(real)f.real=1;
+  const help=how==='help';soulShift({kind:help?5:2,play:1});
+  if(f.n===1)soulMem('friend',help?'ช่วย '+ic+name+' ไว้ จนกลายเป็นเพื่อนกัน':ic+name+(how==='ally'?' มาช่วยสู้ข้างๆ ':' แวะมาฝึกด้วยกัน')+(f.real?' (เพื่อนตัวจริง!)':''),help||f.real?4:3,ic,help?'help':'friend');
+  else if(f.n===3||f.n===6||f.n===10)soulMem('friend','ความผูกพันกับ '+ic+name+' ลึกขึ้นอีก (ครั้งที่ '+f.n+')',3,'💞','friend');
+}
+function soulVisit(w,sp){
+  const c=S.c;if(!c||!c.soul)return;soulFriend(w.n,w.ic,'visit',w.t==='g');
+}
+function soulReport(g){
+  const c=S.c;if(!c||!c.soul)return;soulShift({kind:1,play:1});
+  soulMem('trip',c.name+'กลับจากการไปฝึกที่ห้องของเพื่อน 💪+'+g[0].toFixed(1)+' ⚡+'+g[1].toFixed(1)+' 🧠+'+g[2].toFixed(1),3,'🎒','friend');
+}
+// --- การต่อสู้: แพ้/ชนะสร้างประสบการณ์ ---
+const fightName=b=>b.xf?b.xf.name:'ศัตรูระดับ'+b.t;
+function soulFight(w,b){
+  const c=S.c,so=c&&c.soul;if(!so)return;const name=fightName(b),boss=!!(b.xf&&b.xf.boss);
+  if(b.an){const pn=plainName(b.an);soulFriend(pn,b.ai||'🐾','ally',/เพื่อนจริง/.test(b.an));}
+  if(w){
+    so.w++;so.ws++;so.ls=0;soulShift({bold:2});if(soulQ('proud'))c.bond=cl(c.bond+2);
+    if(so.fear[name]>=2){delete so.fear[name];soulShift({bold:7});soulMem('fear','ก้าวข้ามความกลัว '+name+' ได้สำเร็จ!',4,'🦁','win');}
+    else if(so.grudge[name]){delete so.grudge[name];soulShift({bold:3});soulMem('revenge','แก้แค้น '+name+' สำเร็จ สมใจที่รอมานาน',4,'🔥','win');}
+    else if(boss)soulMem('boss','ล้ม '+name+' ได้ที่ชั้น '+S.depth,4,'👑','boss');
+    else if(so.w===1)soulMem('win','ชัยชนะครั้งแรกของ '+c.name+' (เหนือ '+name+')',3,'🏆','win');
+    else if(so.ws===3||so.ws===6)soulMem('streak','ชนะติดกัน '+so.ws+' ครั้ง กำลังมั่นใจสุดๆ',3,'🔥','win');
+    else if(Math.random()<.25)soulMem('win','ชนะ '+name,1,'⚔️','win');
+  }else{
+    so.l++;so.ls++;so.ws=0;soulShift({bold:-1});if(soulQ('proud'))c.bond=cl(c.bond-2);
+    const prev=so.fear[name]||0,bravo=so.ax.bold>=40;
+    if(bravo){if(!so.grudge[name]){so.grudge[name]=1;soulShift({bold:2});soulMem('grudge','แพ้ '+name+' และไม่ยอมแพ้ ตั้งใจจะเอาคืน!',4,'😡','lose');}}
+    else{so.fear[name]=boss?2:prev+1;if(prev<2&&so.fear[name]>=2){soulShift({bold:-3});soulMem('fear','แพ้ '+name+' จนฝังใจ ตอนนี้ยังกลัวอยู่',4,'😨','lose');}
+      else if(so.l===1)soulMem('lose','พ่ายแพ้ครั้งแรก ให้กับ '+name,3,'💔','lose');}
+    if(so.ls===3)soulMem('slump','แพ้ติดกัน 3 ครั้ง กำลังท้อ',3,'😞','lose');
+    else if(Math.random()<.25)soulMem('lose','แพ้ '+name,1,'🩹','lose');
+  }
+}
+function soulFightMul(c,b){
+  const so=c.soul;if(!so)return 1;const name=fightName(b);let m=1,n='';
+  if(so.fear[name]>=2){m*=.85;n='😨 '+c.name+'ยังกลัว '+name+' ตัวสั่นตีไม่เต็มแรง';}
+  if(so.grudge[name]){m*=1.12;n='🔥 '+c.name+'แค้นฝังใจ '+name+'!';}
+  if(so.ws>=3){m*=1.08;n=n||'🔥 กำลังมั่นใจ!';}
+  if(so.ls>=2){m*=.93;n=n||'😞 ยังท้ออยู่';}
+  if(!b._sn){b._sn=1;if(n)b.L.unshift(n);}
+  return m;
+}
+const soulCrit=c=>c.soul?c.soul.ax.bold*.0006:0;
+// --- นิสัยในห้อง ---
+function soulAct(c,a){
+  const so=c.soul;if(!so||!SPOTS[a])return;so.act[a]=(so.act[a]||0)+1;
+  const tot=Object.values(so.act).reduce((x,y)=>x+y,0);if(tot<10||tot%8)return;
+  const top=Object.entries(so.act).sort((x,y)=>y[1]-x[1])[0];
+  if(top[1]/tot>=.35&&so.fav!==top[0]){so.fav=top[0];soulMem('hobby',c.name+'เริ่มหลงรัก '+SPOTS[top[0]].ic+SPOTS[top[0]].n+' เป็นพิเศษ',2,SPOTS[top[0]].ic,null);}
+}
+function soulWeights(c,w){
+  const so=c.soul;if(!so)return;const A=so.ax;
+  if(so.fav&&w[so.fav])w[so.fav]*=1.8;
+  if(soulQ('sleepy'))w.rest*=2.5;
+  if(A.play>30){w.run*=1.3;w.work*=.7;}if(A.play<-30)w.read*=1.3;if(A.bold>30)w.lift*=1.2;
+}
+function soulDis(c,k){
+  const so=c.soul;if(!so)return 0;const A=so.ax;let p=0;
+  if(so.fav===k)p-=.15;
+  if(k==='read'){if(A.play>30)p+=.1;if(A.play<-30)p-=.08;}
+  if(k==='lift'||k==='run'){if(A.bold>30)p-=.06;if(A.bold<-30)p+=.06;}
+  if(so.ls>=2)p+=.1;if(so.ws>=3)p-=.05;return p;
+}
+function soulDisNote(c,k){
+  const so=c.soul;if(!so)return '';
+  if(so.fav===k)return '💖 ของโปรด';if(so.ls>=2)return '😞 กำลังท้อ';if(so.ws>=3)return '🔥 กำลังมั่นใจ';
+  if(k==='read'&&so.ax.play>30)return '😒 ขี้เล่นเกินกว่าจะนั่งอ่าน';if(k==='read'&&so.ax.play<-30)return '📖 ชอบความสงบ';
+  if((k==='lift'||k==='run')&&so.ax.bold<-30)return '😰 ขี้ตื่น ไม่ค่อยอยากเหนื่อย';return '';
+}
+function soulEat(c,k){
+  const so=c.soul;if(!so)return;so.food[k]=(so.food[k]||0)+1;
+  if(soulQ('foodie'))c.hun=cl(c.hun+8);
+  const top=Object.entries(so.food).sort((x,y)=>y[1]-x[1])[0];
+  if(top[1]>=4&&so.ff!==top[0]){so.ff=top[0];soulMem('food','ติดใจ '+FOODS[top[0]].ic+FOODS[top[0]].n+' ที่สุด',2,FOODS[top[0]].ic,null);}
+  else if(so.ff===k){c.bond=cl(c.bond+1);setSay('🥰 ของโปรด!',2200);}
+}
+function soulStep(c){
+  const so=c.soul;if(!so)return;
+  if(c.hun<10&&S.day-so.hung>=5){so.hung=S.day;soulShift({kind:-2});soulMem('hunger',c.name+'หิวโซจนท้องร้องลั่น กว่าจะได้กิน',3,'😣','hunger');}
+  if(soulQ('homebody'))c.bond=cl(c.bond+.12);
+  if(soulQ('wanderer')&&!c.act)c.bond=cl(c.bond-.08);
+  if(!so.tip&&S.tick>4){so.tip=1;setSay('📔 แตะชื่อด้านบนเพื่อเปิดสมุดบันทึก',4500);}
+  else if(Math.random()<.05&&!c.say&&!S.food&&!c.act)soulRecall(c);
+}
+function soulRecall(c){
+  const so=c.soul,a=[];
+  Object.keys(so.fear).filter(n=>so.fear[n]>=2).forEach(n=>a.push('😨 ยังฝันร้ายถึง '+n+'…'));
+  Object.keys(so.grudge).forEach(n=>a.push('🔥 สักวันจะเอาคืน '+n+'!'));
+  Object.entries(so.fr).forEach(([n,f])=>a.push('💭 คิดถึง '+f.ic+n+'…'));
+  if(so.fav)a.push(SPOTS[so.fav].ic+' อยากไป'+SPOTS[so.fav].n+'อีกจัง~');
+  const ql={sleepy:'😪 ง่วงอีกแล้ว…',foodie:'🍖 ท้องว่างจัง',proud:'😤 ฉันเจ๋งที่สุดนะ',homebody:'🏠 อยู่บ้านสบายที่สุด',wanderer:'🧭 อยากออกไปข้างนอกจัง',lucky:'🍀 วันนี้รู้สึกโชคดี'};
+  so.q.forEach(q=>a.push(ql[q]));
+  if(a.length)setSay(pk(a),3200);
+}
+function soulDay(c){
+  const so=c.soul;if(!so||Math.random()>.3)return;const pool=so.j.filter(e=>e.w>=2).slice(0,12);if(!pool.length)return;
+  const e=pk(pool);let ef='';
+  if(['fear','lose','slump','grudge'].includes(e.k)){c.en=cl(c.en-4);ef=' (นอนไม่หลับ พลัง -4)';}
+  else if(['friend','win','streak','boss','revenge','trip'].includes(e.k)){c.bond=cl(c.bond+2);ef=' (ตื่นมาอารมณ์ดี สนิท +2)';}
+  log('💭 '+c.name+'ฝันถึง '+e.ic+' “'+e.t.slice(0,32)+(e.t.length>32?'…':'')+'”'+ef);
+}
+// --- สมุดบันทึก ---
+function axMeter(k){
+  const v=Math.round(S.c.soul.ax[k]),lo=AXN[k][0],hi=AXN[k][1];
+  return `<div style="display:flex;align-items:center;gap:4px;font-size:10px"><span style="width:64px;text-align:right;opacity:${v<0?1:.55}">${lo}</span><i style="flex:1;height:9px;background:var(--bd);border-radius:6px;position:relative;display:block"><u style="position:absolute;top:0;height:100%;left:${v>=0?50:50+v/2}%;width:${Math.abs(v)/2}%;background:${v>=0?'var(--ac)':'var(--blue)'};border-radius:6px"></u><em style="position:absolute;left:50%;top:-2px;width:1px;height:13px;background:var(--mu)"></em></i><span style="width:64px;opacity:${v>=0?1:.55}">${hi}</span></div>`;
+}
+function storyText(c){
+  const so=c.soul,a=soulArch(c);
+  return `📔 สมุดบันทึกของ ${c.name} (${a[0]} ${a[1]})\n`+so.q.map(q=>QK[q][0]+QK[q][1]).join(' · ')+`\n`+so.j.slice(0,12).reverse().map(e=>`วันที่ ${e.d} ${e.ic} ${e.t}${e.r?` — “${e.r}”`:''}`).join('\n')+'\n#CreatureTycoon';
+}
+function copyStory(){
+  const c=S.c;if(!c||!c.soul)return;const t=storyText(c);let ok=false;
+  try{navigator.clipboard.writeText(t);ok=true;}catch(_){}
+  if(!ok){try{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();ok=document.execCommand('copy');ta.remove();}catch(_){}}
+  const b=$('btnStory');if(b)b.textContent=ok?'✓ คัดลอกแล้ว':'คัดลอกไม่ได้';
+}
+function openSoul(){
+  const c=S.c;if(!c||!c.soul||S.b||S.ev||XQ||S.over||S.evo)return;
+  const so=c.soul,a=soulArch(c);so.unread=0;
+  const card=e=>`<div class="card" style="text-align:left;padding:8px;border-left:5px solid ${e.w>=4?'var(--ac)':e.w>=3?'var(--blue)':'var(--bd)'}"><b style="font-size:12px">${e.ic} ${e.t}</b>${e.r?`<div class="log" style="font-style:italic">“${e.r}”</div>`:''}<small style="color:var(--mu)">วันที่ ${e.d}${e.w>=4?' · ⭐ ความทรงจำเด่น':''}</small></div>`;
+  const star=so.j.filter(e=>e.w>=4).slice(0,3),rest=so.j.filter(e=>!star.includes(e)).slice(0,18);
+  const fr=Object.entries(so.fr).map(([n,f])=>`${f.ic}${n}${f.real?'💚':''}×${f.n}`).join(' · ');
+  const fe=Object.keys(so.fear).filter(n=>so.fear[n]>=2),gr=Object.keys(so.grudge);
+  const past=(S.past||[]).map(p=>`<div class="log" style="text-align:left;margin-top:4px">${p.ic} <b>${p.n}</b> รุ่น ${p.g} · ${p.ti} · 🏆${p.w}/💔${p.l} · เพื่อน ${p.fr}<br><small>${p.q.join(' ')}${p.best?' · ⭐ '+p.best:''}</small></div>`).join('');
+  xOv(`<div style="display:flex;gap:8px;align-items:center;text-align:left"><div class="sv" style="width:64px;flex:none">${svg(c)}</div><div><b style="font-size:15px">📔 สมุดบันทึกของ ${c.name}</b><div class="log">${a[0]} <b>${a[1]}</b> · ร่าง ${c.stage} · รุ่น ${S.gen}</div></div></div>
+  <div class="card" style="padding:8px"><b style="font-size:12px">🧭 บุคลิกตอนนี้ (เปลี่ยนไปตามเรื่องราว)</b>${axMeter('bold')}${axMeter('kind')}${axMeter('play')}
+  <div style="margin-top:6px;text-align:left">${so.q.map(q=>`<div class="log">${QK[q][0]} <b>${QK[q][1]}</b> · ${QK[q][2]}</div>`).join('')}</div></div>
+  <div class="card log" style="text-align:left;padding:8px;line-height:1.6">🏆 ชนะ ${so.w} · 💔 แพ้ ${so.l}${so.ws>=2?` · 🔥 ติด ${so.ws}`:so.ls>=2?` · 😞 แพ้ติด ${so.ls}`:''}${so.fav?`<br>💖 งานอดิเรก: ${SPOTS[so.fav].ic}${SPOTS[so.fav].n}`:''}${so.ff?`<br>🍽️ ของโปรด: ${FOODS[so.ff].ic}${FOODS[so.ff].n}`:''}${fr?`<br>💞 เพื่อน: ${fr}`:''}${fe.length?`<br>😨 กลัว: ${fe.join(', ')}`:''}${gr.length?`<br>😡 แค้น: ${gr.join(', ')}`:''}</div>
+  ${star.length?`<b style="font-size:12px;text-align:left">⭐ ความทรงจำเด่น</b>${star.map(card).join('')}`:''}
+  <b style="font-size:12px;text-align:left">📖 บันทึกล่าสุด</b>${rest.map(card).join('')||'<div class="log">ยังไม่มีเรื่องราว… ลองพาออกไปผจญภัยดู</div>'}
+  ${past?`<details style="text-align:left"><summary style="font-size:12px;cursor:pointer">🕰️ ชาติก่อนๆ (${S.past.length})</summary>${past}</details>`:''}
+  <div class="g"><button class="btn" id="btnStory" onclick="copyStory()">📋 คัดลอกเรื่องราว</button><button class="btn on" onclick="closeX()">ปิด</button></div>`);
+  render();
+}
+function soulCard(w){
+  const c=S.c,so=c&&c.soul;if(!so)return;
+  if(w>=2){so.cw=(so.cw||0)+1;soulShift({play:1});
+    if(so.cw===1)soulMem('card','ชนะเกมไพ่กับเจ้าของเป็นครั้งแรก',2,'🃏','win');
+    else if(so.cw===3||so.cw===6)soulMem('card','ชนะเกมไพ่ติดกัน '+so.cw+' ตา',2,'🃏','win');}
+  else so.cw=0;
+}
+
+window.onload=()=>{buildSpots();$('petName').onclick=e=>{e.stopPropagation();openSoul();};loadGame();};
 </script>
 
 </body>
