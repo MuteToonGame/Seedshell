@@ -109,10 +109,7 @@ h4{margin:0 0 10px;font-size:14px;color:var(--mu);}
     <div class="card" style="text-align:center;margin-top:40px;">
       <div id="hint" class="bub">กดค้าง → 💪 · กดรัว → ⚡ · ปล่อยไว้ → 🧠 (เลือกที่ลงโบนัส 2 แต้ม)</div>
       <div class="egg-stage" id="eggZone">
-        <svg viewBox="0 0 200 220" width="200" height="220" class="wob">
-          <ellipse cx="100" cy="120" rx="65" ry="82" fill="#f7ecd2" stroke="#c9a96a" stroke-width="4"/>
-          <circle id="e1" cx="75" cy="90" r="9" fill="#d9bf82"/><circle id="e2" cx="125" cy="140" r="12" fill="#d9bf82"/><circle id="e3" cx="105" cy="170" r="7" fill="#d9bf82"/>
-        </svg>
+        <img id="eggImg" width="200" height="200" draggable="false" style="pointer-events:none;display:block">
       </div>
       <div class="bar"><b>ฟัก</b><i><u id="prog" style="width:0;background:var(--ac)"></u></i></div>
       <div class="log" id="eggLog" style="margin-top:10px;">ไข่ใบแรกของคุณ</div>
@@ -139,6 +136,7 @@ h4{margin:0 0 10px;font-size:14px;color:var(--mu);}
     <button class="nav-btn" onclick="openHub()"><i>👥</i>เพื่อน</button>
   </div>
 </div>
+<script src="owl-art.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const rnd=(a,b)=>a+Math.random()*(b-a), ri=(a,b)=>Math.floor(rnd(a,b+1)), pick=a=>a[ri(0,a.length-1)], cl=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
@@ -223,7 +221,7 @@ function startEgg(){
   S.c=null;S.screen='egg';S.over=false;S.evo=false;S.food=null;S.log=[];saveGame();
   document.querySelectorAll('.screen').forEach(e=>e.classList.remove('active'));
   $('scr-egg').classList.add('active'); $('navBar').style.display='none';
-  const L=look(egg.seed); ['e1','e2','e3'].forEach(i=>$(i).setAttribute('fill',L.body));
+  $('eggImg').src=owlSrc('egg',egg.seed);
   $('prog').style.width='0'; topBar();
   $('eggLog').textContent=S.legacy?`ไข่ใบนี้สืบทอดนิสัย “${S.legacy.trait}” จากชาติก่อน`:'ไข่ใบแรกของคุณ (สีลายไข่ = สีของตัวละคร)';
   const z=$('eggZone'); z.onpointerdown=()=>{egg.down=1;egg.taps++;}; z.onpointerup=z.onpointerleave=()=>{egg.down=0;};
@@ -334,7 +332,7 @@ function evolve(){
 }
 function useCrystal(){
   const c=S.c; if(!c||c.stage!==3||S.crystal<1)return;
-  S.crystal--; c.stage=4; soulEvo(c); S.evo=true; if(c.secretForm){recordMemory('secret','ตำนาน '+c.secretForm,'วิวัฒนาการลับสมบูรณ์แล้ว');} log('🌟 ใช้ผลึก! '+c.name+' เป็น '+formName(c)); render(); saveGame();
+  S.crystal--; c.k4=kindForm(c); c.stage=4; soulEvo(c); S.evo=true; if(c.secretForm){recordMemory('secret','ตำนาน '+c.secretForm,'วิวัฒนาการลับสมบูรณ์แล้ว');} log('🌟 ใช้ผลึก! '+c.name+' เป็น '+formName(c)); render(); saveGame();
 }
 function closeEvo(){S.evo=false;render();saveGame();}
 function die(){
@@ -470,8 +468,21 @@ function updBattle(){
 function anim(id,cls,ms){const e=$(id);if(!e)return;e.classList.remove(cls);void e.offsetWidth;e.classList.add(cls);setTimeout(()=>e.classList.remove(cls),ms);}
 function fx(side,txt,cls){const a=$('fx');if(!a)return;const e=document.createElement('div');e.className='dmg '+cls;e.textContent=txt;e.style.left=(side==='e'?74:24)+'%';a.appendChild(e);setTimeout(()=>e.remove(),900);}
 
+const kindForm=c=>{const k=c.soul&&c.soul.ax?c.soul.ax.kind:0;return k<-15?'fierce':k>15?'kind':'neutral';};
+function owlKey(c){
+  if(c.stage===1)return 's1';
+  if(c.stage===2)return 's2'; // ยังไม่แตกสาย: ใช้นกฮูกไปก่อน จนกว่าช้าง/กระต่ายจะมา
+  if(c.br==='int')return c.stage===3?'s3_int':'s4_int_'+(c.k4||kindForm(c));
+  return null; // สายแรง/สายเร็ว ยังใช้ภาพเดิมชั่วคราว
+}
+function owlSvg(c,key){
+  const x=(c.hun<20?'<text x="146" y="70" font-size="22">💧</text>':'')+(c.en<20?'<text x="26" y="60" font-size="20">💤</text>':'');
+  return `<svg viewBox="0 0 200 200" width="200" height="200" overflow="visible"><image href="${owlSrc(key,c.seed)}" width="200" height="200"/>${x}</svg>`;
+}
+
 // --- Creature SVG (สีจาก seed, รูปร่างตามร่าง 1-4) ---
 function svg(c){
+  {const ok=owlKey(c);if(ok)return owlSvg(c,ok);}
   const L=look(c.seed),st=c.stage,br=c.br,k=[0,.68,.85,1,1.12][st];
   const rx=62*k,ry=52*k,cy=164-ry,top=cy-ry,ex=14+8*k,ey=cy-8*k,er=c.en<20?3:(st===1?10:8);
   const B=L.body,D=L.dark,A=L.acc,G='#f5c542',X=100;
