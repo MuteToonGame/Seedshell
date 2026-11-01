@@ -819,7 +819,7 @@ function xGo(){
 }
 function xPick(k){const q=XQ;if(!q)return;XQ=null;xResolve(q,k);}
 function xResolve(q,ch){
-  if(q.fk)return dxDoor(q,ch);if(q.shop){xMsg('🛒 ออกจากร้านแล้ว');return xAfter();}
+  if(q.fk)return dxDoor(q,ch);if(q.shop){xMsg(xOut('','','🛒🚪'));return xAfter();}
   const c=S.c,L=q.L,own=soulPick(L,c);let pick=ch,pre='';
   if(ch==null){pick=own;pre='⏳ '+c.name+'ตัดสินใจเอง: ';}
   else if(own!==ch&&Math.random()>soulObey(c,L.o[ch],cl(.35+c.bond*.006-(c.trait==='ซน'?.15:0),.2,.97))){pick=own;pre=soulDefy(c,L.o[ch]);}
@@ -846,7 +846,7 @@ function xBuy(id){
   S.money-=i.p;xMsg(`${i.ic} ซื้อ${i.n} (−฿${i.p})`);xStat();xBagUI();render();saveGame();
 }
 function xBack(forced){
-  if(XQ)return xMsg('เลือกทางก่อนนะ');
+  if(XQ)return xMsg(xOut('','','⛔🔀'));
   const d=S.depth,B=BIO[S.dBi||0],b=Math.round(d*10*B.lm*(dxHas('amph')?1+.3*dxM('amph'):1));
   S.money+=b;S.depth=0;dxHome();log('🏠 '+S.c.name+' กลับค่าย · ลึกสุด '+d+' ชั้น');
   const prev=forced?xLast+'<hr>':'';openExp();xMsg(`${prev}`+xOut('',xCh(['⬇️'+d,'🏆'+S.bestD,'💰+'+b]),(forced?'🔋0 ':'')+'🏠'));
@@ -901,7 +901,7 @@ function copyCard(i){const a=S.album[i];try{navigator.clipboard.writeText('“'+
 const FO=[['🐺','🐗'],['🦂','🐍'],['🐻','🦣']];
 let XBm='';
 function xChallenge(boss){
-  if(!boss&&dxHas('star')&&Math.random()<Math.min(.9,.5*dxM('star'))){xMsg('🌠 เงาแสงเหนือพาเดินผ่านศัตรูไปโดยไม่มีใครเห็น');return xAfter();}
+  if(!boss&&dxHas('star')&&Math.random()<Math.min(.9,.5*dxM('star'))){xMsg(xOut('',xCh(['👻']),'🌠'));return xAfter();}
   const c=S.c,B=BIO[PX.bi],D=S.depth,ctx=xctx(),ic=FO[PX.bi][boss?1:0],pay=Math.round((50+D*12)*(boss?3:1));
   ctx.foe=B.m;
   const pt=boss?dxBoss():null;if(pt)dxSee('b:'+pt.id);const f={ic,name:boss?'เจ้าแห่ง'+B.m+' · '+pt.n:B.m,boss:boss?1:0,pat:pt?pt.id:''};
@@ -1032,7 +1032,7 @@ function dxBuild(t,v){
 }
 function dxShop(v,s0,ctx){
   const k=(1+S.depth*.03)*(v===1?.75:1),P=[['bag','rice','🍙','ข้าวปั้น +25 พลัง',70],['bag','meat','🍖','เนื้อย่าง +100 พลัง',280],['it','shield','🛡️','โล่กันบาดเจ็บ',250],['it','retry','🔮','ลูกแก้วลองใหม่',290],['key','key','🗝️','กุญแจห้องสมบัติ',360],['key','cloak','🧥','เสื้อคลุมกันอากาศ',210],['mys','','🎁','ถุงปริศนา (ของสะสมพื้นที่นี้)',420]];
-  XQ={shop:P.map(x=>({t:x[0],id:x[1],ic:x[2],n:x[3],p:Math.round(x[4]*k)})).sort(()=>Math.random()-.5).slice(0,4),ctx,s0,L:{o:[]},nm:DXT.shop[2][v],msg:'👋'};if(dx().ai){XQ=null;xMsg('🛒 สัตว์เดินผ่านร้านค้าไป (โหมดสัตว์เลือกเอง)');return xAfter();}dxShopUI();
+  XQ={shop:P.map(x=>({t:x[0],id:x[1],ic:x[2],n:x[3],p:Math.round(x[4]*k)})).sort(()=>Math.random()-.5).slice(0,4),ctx,s0,L:{o:[]},nm:DXT.shop[2][v],msg:'👋'};if(dx().ai){XQ=null;xMsg(xOut('','','🛒💨'));return xAfter();}dxShopUI();
 }
 function dxBuy(i){
   const q=XQ,o=q&&q.shop&&q.shop[i];if(!o||o.sold||S.money<o.p)return;const D=dx();let m=o.ic+' ซื้อ'+o.n.split(' ')[0];
@@ -1042,7 +1042,7 @@ function dxBuy(i){
   else m+=dxCol(pk(['w','t']));
   S.money-=o.p;o.sold=1;q.msg=m;dxShopUI();render();saveGame();
 }
-function dxLeave(){XQ=null;xMsg('🛒 ออกจากร้านแล้ว เดินทางต่อ');xAfter();}
+function dxLeave(){XQ=null;xMsg(xOut('','','🛒🚪'));xAfter();}
 function dxStat(){const R=dx().run,w=DXW.find(x=>x.id===R.wx),o=DXO.find(x=>x.id===R.om);return (o||w)?`<br>${o?o.ic:''}${w?' '+w.ic+'('+R.wl+')':''}${R.cl>0?' 🧥':''}`:'';}
 function dxBoss(){const u=DXB.filter(b=>!dx().seen['b:'+b.id]);return Math.random()<.7&&u.length?pk(u):pk(DXB);}
 function dxPat(b,pd){
@@ -1147,7 +1147,7 @@ function xLd(i){xLf=false;clearTimeout(xLt);xLt=setTimeout(()=>{xLf=true;const e
 function xLu(i){clearTimeout(xLt);if(!xLf&&XF[i])XF[i]();}
 function xTiles(L){XT=[];XF=[];return `<div class="g" style="grid-template-columns:repeat(auto-fit,minmax(78px,1fr))">`+L.map((t,i)=>{XT[i]=t[2];XF[i]=t[3];return `<button class="btn tile" ${t[4]?'disabled':''} onpointerdown="xLd(${i})" onpointerup="xLu(${i})" onpointerleave="clearTimeout(xLt)" oncontextmenu="return false"><span class="ti">${t[0]}</span><span>${t[1]}</span></button>`;}).join('')+`</div><div id="xTip" class="log" style="min-height:18px"></div>`;}
 function xOut(t,ch,big){return `<div style="font-size:38px;text-align:center">${big||em(t)}</div><div style="text-align:center">${ch||''}</div>`+(t?`<div style="text-align:center"><button class="btn" style="padding:0 10px;font-size:12px" onclick="this.nextElementSibling.style.display='block'">📜</button><div class="log" style="display:none;text-align:left">${t}</div></div>`:'');}
-function optChips(o){
+function optChips(o,ic){
   const p=[],sg=v=>(v>0?'+':'−')+Math.abs(Math.round(v));
   if(o.f)p.push('⚔️');if(o.fl)p.push('🏃');if(o.ky)p.push('🗝️');
   if(o.c)p.push(o.c==='?'?'🎲':({str:'💪',spd:'⚡',int:'🧠'}[o.c]||'🎯'));
@@ -1155,12 +1155,12 @@ function optChips(o){
   if(o.b)p.push('❤️'+sg(o.b));if(o.e)p.push('🔋'+sg(o.e));if(o.u)p.push('🍖');
   if(o.s)p.push(({str:'💪',spd:'⚡',int:'🧠'}[o.s]||'')+'+'+(o.a||1));
   if(o.it||o.k)p.push('🎁');if(o.n)p.push('🤝');if(o.h)p.push('🩹?');
-  return xCh(p);
+  return xCh(p.filter(x=>x!==ic));
 }
 function xAsk(){
   const q=XQ,c=S.c;if(dx().ai){XQ=null;return xResolve(q,null);}
   const pat=q.f&&q.f.pat?DXB.find(z=>z.id===q.f.pat):null,big=q.f?(q.f.boss?'👑':q.f.ic||'⚔️')+(pat?pat.ic:''):em(q.L.h||q.L.q);
-  xMsg(`<div style="text-align:center;font-size:40px">${big}</div><div style="text-align:center"><button class="btn" style="padding:0 10px;font-size:12px" onclick="$('xQ').style.display='block'">📜</button></div><div id="xQ" class="log" style="display:none">“${tmpl(q.L.q,q.ctx)}”</div>`+xTiles(q.L.o.map((o,k)=>[em(o.l),optChips(o),o.l,()=>xPick(k)]))+`<small style="color:var(--mu)">❤️${Math.round(c.bond)} · 👆 กดค้าง = อ่านคำอธิบาย</small>`);
+  xMsg(`<div style="text-align:center;font-size:40px">${big}</div>${pat?`<div style="text-align:center"><small>${pat.n}</small></div>`:''}<div style="text-align:center"><button class="btn" style="padding:0 10px;font-size:12px" onclick="$('xQ').style.display='block'">📜</button></div><div id="xQ" class="log" style="display:none">“${tmpl(q.L.q,q.ctx)}”</div>`+xTiles(q.L.o.map((o,k)=>[em(o.l),optChips(o,em(o.l)),o.l,()=>xPick(k)]))+`<small style="color:var(--mu)">❤️${Math.round(c.bond)} · 👆 กดค้าง = อ่านคำอธิบาย</small>`);
   xStat();xBagUI();
 }
 function dxForkUI(){
