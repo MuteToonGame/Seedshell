@@ -144,7 +144,7 @@ const rnd=(a,b)=>a+Math.random()*(b-a), ri=(a,b)=>Math.floor(rnd(a,b+1)), pick=a
 const TR=['ตะกละ','ขยัน','ขี้หึง','ซน'];
 const NAMES=['มะม่วง','ถั่วงอก','ก้อนเมฆ','บะหมี่','ตูบ','โมจิ','กะปิ'];
 const BR={str:{n:'นักสู้',n4:'ราชานักสู้',ic:'💪'},spd:{n:'นักล่า',n4:'ราชานักล่า',ic:'⚡'},int:{n:'นักปราชญ์',n4:'ราชานักปราชญ์',ic:'🧠'}};
-const EVO_AGE=[0,0,5,12]; // ร่าง 2 วันที่ 5, ร่าง 3 วันที่ 12
+const EVO_AGE=[0,0,15,30];
 const CRYSTAL_PRICE=1500;
 const CAP0=69,CAPUP=.10; // เพดานสเตตัสเริ่มต้น · เพิ่มต่อรุ่นเมื่อสัตว์ตาย (สะสมแบบทบต้น)
 const capOf=k=>Math.round((S.cap&&S.cap[k])||CAP0);
@@ -160,15 +160,45 @@ function loadGame(){
   let sv=null; try{sv=JSON.parse(store.get())}catch(e){}
   if(sv) S=Object.assign(S,sv);
   S.f=Object.assign({book:0,weight:0,tread:0,chef:0},S.f); S.b=null; S.discoveries=Object.assign({memories:[],counts:{},biomes:{},secretReady:false},S.discoveries||{}); S.discoveries.counts=Object.assign({},S.discoveries.counts); S.discoveries.biomes=Object.assign({},S.discoveries.biomes);
-  if(S.c){ if(S.c.x==null){S.c.x=50;S.c.y=72;} if(!S.cap){S.cap={str:CAP0,spd:CAP0,int:CAP0};S.c.nocap=1;} soulEnsure(); switchScreen('home'); startGameLoop(); checkDaily(); } else startEgg();
+  if(S.c){ if(S.c.x==null){S.c.x=50;S.c.y=72;} if(!S.cap)S.cap={str:CAP0,spd:CAP0,int:CAP0}; delete S.c.nocap; soulEnsure(); switchScreen('home'); startGameLoop(); checkDaily(); } else startEgg();
 }
-function resetGame(){ if(confirm('ต้องการเริ่มเกมใหม่ทั้งหมดใช่หรือไม่?')){ store.del(); location.reload(); } }
+function resetGame(){
+  // ใช้ modal ของเกมเองแทน confirm() ที่มักถูกบล็อกใน WebView / mobile / PWA
+  const ov=document.createElement('div');
+  ov.className='ov';
+  ov.innerHTML='<div class="md"><div style="font-size:40px">⚠️</div><b>ล้างเซฟทั้งหมด?</b>'+
+    '<div class="log">สัตว์ เงิน ความทรงจำ ประวัติรุ่น ทุกอย่างจะหายถาวร<br>และเริ่มไข่ใบใหม่ทันที</div>'+
+    '<div class="g"><button class="btn" id="rsNo">ยกเลิก</button>'+
+    '<button class="btn" id="rsYes" style="color:#fff;background:var(--bad);border-color:var(--bad)">🗑️ ลบทั้งหมด</button></div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#rsNo').onclick=()=>ov.remove();
+  ov.querySelector('#rsYes').onclick=()=>{
+    // 1) หยุด loop ทั้งหมดก่อน — กัน saveGame() ยิงทับซ้ำหลังลบ
+    try{ clearInterval(T); }catch(_){}
+    try{ clearInterval(MT); }catch(_){}
+    try{ clearInterval(BT); }catch(_){}
+    S.over=true; // กัน step() ที่อาจยังค้างคิว
+    // 2) ลบทุกคีย์ที่อาจค้าง (ชื่อเก่า + ใหม่) และ session
+    try{
+      localStorage.removeItem(KEY);              // creatureTycoonSave2
+      localStorage.removeItem('creatureTycoonSave');
+      localStorage.removeItem('creatureTycoonSave1');
+      sessionStorage.clear();
+    }catch(_){}
+    // 3) reload พร้อม fallback สำหรับ WebView ที่ reload เงียบ
+    let done=false;
+    try{ location.reload(); done=true; }catch(_){}
+    if(!done){ try{ location.href=location.pathname+'?r='+Date.now(); }catch(_){} }
+    // fallback ชั้นสอง: ถ้ายังค้างอยู่ ให้แทนที่ location ตรงๆ
+    setTimeout(()=>{ try{ location.replace(location.pathname+'?r='+Date.now()); }catch(_){} },300);
+  };
+  }
 
 // --- Helpers ---
 let EVL=null;
 const log=t=>{if(EVL)EVL.push(t);S.log.unshift(t);S.log=S.log.slice(0,5);$('homeLog').innerHTML=S.log.map(x=>`<div>${x}</div>`).join('');};
 const spend=n=>{S.money=Math.max(0,S.money-n);};
-const eff=(c,k)=>c[k]*(c.stage>=4?1.5:1);
+const eff=(c,k)=>(c[k]+(c===S.c?dxBonus(k):0))*(c.stage>=4?1.5:1);
 const lead=c=>['str','spd','int'].sort((a,b)=>c[b]-c[a])[0];
 const formName=c=>c.stage===1?'ลูกอ่อน':c.stage===2?'วัยรุ่น':(c.secretForm?(c.stage===4?'ตำนาน'+c.secretForm:c.secretForm):(c.stage===3?BR[c.br].n:BR[c.br].n4));
 function rng(seed){let a=seed>>>0;return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -403,10 +433,10 @@ function round(){
   const cr=Math.random()<0.1+eff(c,'int')*0.01+soulCrit(c);
   const pd=Math.round((P*0.6+rnd(0,4))*b.buff*(cr?1.8:1)*(c.trait==='ตะกละ'?1.1:1)*(c.fierce>0?1.15:1)*soulFightMul(c,b));
   const ed=Math.round(b.E*0.6+rnd(0,4));
-  const ad=b.al?Math.round(b.al*.6+rnd(0,3)):0;b.eh-=pd+ad;anim('fP','atkR',350);setTimeout(()=>{anim('fE','hit',350);fx('e','-'+pd,cr?'crit':'');},150);b.L.unshift((cr?'💥 คริติคอล! ':'')+c.name+' ตี '+pd+(b.buff>1?' (เชียร์!)':''));b.buff=1;if(ad)b.L.unshift(b.an+' ช่วยตี '+ad);
+  const ad=b.al?Math.round(b.al*.6+rnd(0,3)):0;const pdx=Math.round((b.xf&&b.xf.pat?dxPat(b,pd):pd)*(dxHas('fang')?1.6:1));b.eh-=pdx+ad;anim('fP','atkR',350);setTimeout(()=>{anim('fE','hit',350);fx('e','-'+pdx,cr?'crit':'');},150);b.L.unshift((cr?'💥 คริติคอล! ':'')+c.name+' ตี '+pdx+(b.buff>1?' (เชียร์!)':''));b.buff=1;if(ad)b.L.unshift(b.an+' ช่วยตี '+ad);
   if(b.eh<=0){b.eh=0;return endFight(1);}
-  b.ph-=ed;setTimeout(()=>anim('fE','atkL',350),450);setTimeout(()=>{anim('fP','hit',350);fx('p','-'+ed,'');},600);b.L.unshift('ศัตรูตอบโต้ '+ed);
-  if(b.ph<=0){b.ph=0;endFight(0);}
+  let edx=ed+(b.xf&&b.xf.pat?dxPatE(b,ed):0);if(dxHas('sting')){edx=Math.round(edx*.5);b.eh-=Math.round(b.em*.06);}b.ph-=edx;setTimeout(()=>anim('fE','atkL',350),450);setTimeout(()=>{anim('fP','hit',350);fx('p','-'+edx,'');},600);b.L.unshift('ศัตรูตอบโต้ '+edx);
+  if(b.ph<=0){if(dxRevive(b))b.ph=Math.round(b.pm*.5);else{b.ph=0;endFight(0);}}
   updBattle();
 }
 function endFight(w){
@@ -418,7 +448,7 @@ function endFight(w){
 function cheer(k){
   const b=S.b;if(!b||!b.ch||b.end)return;b.ch--;
   if(k){b.buff=1.5;fx('p','📣 พลังเพิ่ม!','crit');b.L.unshift('📣 เชียร์! ตีแรงขึ้นในรอบถัดไป');}
-  else{b.ph=Math.min(b.pm,b.ph+15);S.c.hun=cl(S.c.hun+10);fx('p','+15','heal');b.L.unshift('🍖 กินแล้วหาย +15');}
+  else{b.ph=Math.min(b.pm,b.ph+15);S.c.hun=cl(S.c.hun+10);b.cure=2;fx('p','+15','heal');b.L.unshift('🍖 กินแล้วหาย +15');}
   updBattle();
 }
 function closeB(){const x=S.b&&S.b.xf;S.b=null;closeBattle();render();if(x)xAfterFight();}
@@ -700,7 +730,7 @@ const xSnap=()=>{const c=S.c;return{m:S.money,g:S.crystal,str:c.str,spd:c.spd,in
 // ใช้ผลลัพธ์ 1 อัน → คืนข้อความ (เงิน/สเตตัส/สนิท/พลัง/บาดเจ็บ/NPC/ของ)
 function xfx(o,ctx,ic,tt,choice){
   const c=S.c,B=BIO[PX.bi],r=Math.random,m0=S.money,g0=S.crystal;
-  let ok=true,hurt=0,np='',extra='';
+  let ok=true,hurt=0,np='',extra='';if(o.ky)dx().inv.key=Math.max(0,dx().inv.key-1);
   if(o.c){
     if(o.c==='?')ok=r()<.5;
     else{const st=o.c==='L'?lead(c):o.c,need=7+B.dg*6+(c.stage-2)*3+S.depth*.5,p=cl(.5+(eff(c,st)-need)*.04,.12,.95);ok=r()<p;
@@ -711,17 +741,17 @@ function xfx(o,ctx,ic,tt,choice){
     if(o.it||o.g){recordMemory('relic','พบร่องรอยของโบราณ',tmpl(o.x,ctx));}
     if(o.c||o.s){recordMemory('brave','ผ่านบททดสอบ',tmpl(o.x,ctx));}
     if((o.b||0)>=3){recordMemory('bond','สร้างมิตรภาพ',tmpl(o.x,ctx));}
-    const k=.45*B.lm*(1+(c.stage-2)*.25)*(1+S.depth*.06);
+    const k=.45*B.lm*(1+(c.stage-2)*.25)*(1+S.depth*.06)*dxLM();
     if(o.m)S.money+=o.m>0?Math.round(o.m*k):o.m;
-    if(o.g&&r()<o.g*(1+S.depth*.05)*(soulQ('lucky')?1.5:1))S.crystal++;
+    if(o.g&&r()<o.g*(1+S.depth*.05)*(soulQ('lucky')?1.5:1)+(dxHas('rime')?.15:0))S.crystal++;
     if(o.s)c[o.s]+=o.a||1;
     c.bond=cl(c.bond+(o.b||0));if(o.e)c.en=cl(c.en+o.e,0,100);
     if(o.h&&r()<o.h*B.dg*(1+S.depth*.04))hurt=1;
     const nn=o.n;if(nn){const p=newNpc(nn);np=p.ic+p.n;if(nn==='f'&&c.soul)soulFriend(p.n,p.ic,'help');}
-    if(o.it)extra+=giveItem();
+    if(o.it)extra+=giveItem();if(o.k)extra+=dxCol(o.k);if(o.u)c.hun=cl(c.hun+o.u);
   }else{c.bond=cl(c.bond-1);if(r()<.4)hurt=1;}
   soulEvent(o,ok,hurt);if(S.money<0)S.money=0;
-  if(hurt){if(S.items.shield>0){S.items.shield--;extra+=' · 🛡️ โล่กันบาดเจ็บไว้ได้';}else{c.hurt=S.day+4;extra+=' · 🩹 บาดเจ็บ';}}
+  if(hurt&&dxHas('pelt'))extra+=' · 🧣 ขนหมีกันบาดเจ็บไว้';else if(hurt){if(S.items.shield>0){S.items.shield--;extra+=' · 🛡️ โล่กันบาดเจ็บไว้ได้';}else{c.hurt=S.day+4;extra+=' · 🩹 บาดเจ็บ';}}
   const sc=(S.money-m0)/100+(S.crystal-g0)*4+(np?2:0)+(hurt?2:0)+(ok?0:1.5);
   const t=ic+' '+tmpl(o.x,ctx)+(o.c?(ok?' ✓':' 💢'):'')+(np?` · พบ ${np}`:'')+extra;
   if(choice||sc>=2){S.album.unshift({ti:tmpl(tt,ctx),bi:PX.bi,day:S.day,n:c.name,ln:[t]});S.album=S.album.slice(0,30);}
@@ -732,11 +762,11 @@ function xWhy(){
   return !c||S.b||S.ev||S.over||S.evo?'ตอนนี้ยังออกไปไม่ได้':c.stage<2?c.name+'ยังเล็กเกินไป (ต้องร่าง 2)':c.hurt>S.day?`🩹 ยังบาดเจ็บ พักอีก ${c.hurt-S.day} วัน`:c.en<xCost()?`พลังไม่พอ (ต้อง ≥ ${xCost()}) — ใช้ของในกระเป๋า หรือกลับค่าย`:XQ?'เลือกทางก่อนนะ':'';
 }
 let xLast='';
-function xMsg(h){xLast=h;const e=$('xRes');if(e)e.innerHTML=h;}
+function xMsg(h){h=dxPre+h;dxPre='';xLast=h;const e=$('xRes');if(e)e.innerHTML=h;}
 function xStat(){
   const c=S.c,e=$('xSt');if(!e||!c)return;
   const n=Object.entries(S.items).filter(([,v])=>v>0).map(([k,v])=>ITM.find(i=>i.id===k).ic+'×'+v).join(' ');
-  e.innerHTML=`🕳️ ลึก <b>${S.depth}</b> ชั้น <small>(สถิติ ${S.bestD||0})</small> · 🔋 ${Math.round(c.en)} · Lv${c.lv||1} <small>(${c.xp||0}/${(c.lv||1)*40})</small>${n?' · 🎒 '+n:''}`;
+  e.innerHTML=`🕳️ ลึก <b>${S.depth}</b> <small>(สถิติ ${S.bestD||0})</small><br>🔋 ${Math.round(c.en)} · Lv${c.lv||1} <small>(${c.xp||0}/${(c.lv||1)*40})</small>${S.depth?dxStat():''}`;
 }
 function xMilestone(){
   const c=S.c;
@@ -764,11 +794,12 @@ function xMilestonePick(k){
 
 function xGo(){
   const c=S.c,why=xWhy();if(why)return xMsg('⛔ '+why);
-  if(!S.depth){S.dBi=PX.bi;S.dOf=c.seed;}PX.bi=S.dBi;const B=BIO[PX.bi];
+  if(!S.depth){S.dBi=PX.bi;S.dOf=c.seed;dxRun();}PX.bi=S.dBi;const B=BIO[PX.bi];
   c.en=cl(c.en-xCost(),0,100);c.hun=cl(c.hun-2);S.depth++;S.bestD=Math.max(S.bestD||0,S.depth);qInc('dive');
-  const s0=xSnap(),ctx=xctx(),r=Math.random;let t;
+  const s0=xSnap(),ctx=xctx(),r=Math.random;let t;dxWx(c);
   if(S.depth%10===0){log('🕳️ '+c.name+'ลงลึกถึงชั้น '+S.depth);return xChallenge(1);}
   if(S.depth%5===0){xMilestone();return;}
+  if(dxNode(s0,ctx))return;
   if(r()<Math.min(.9,.45+S.pity*.15)){
     S.pity=0;const x=r();
     if(x<.3+Math.min(.1,S.depth*.005)){xChallenge(0);return;}
@@ -777,21 +808,22 @@ function xGo(){
       if(e===6){const p=pk(S.npcs);p.met++;ctx.p=p.ic+p.n;tt='ทริปเจอ{p}';
         if(p.rel==='r'){xFight({ic:p.ic,name:p.n,rival:1});return;}
         o={x:'{p}เพื่อนเก่าของ{n}โผล่มาช่วยชี้ทาง แถมแบ่งของให้!',m:120,b:3,it:Math.random()<.35?1:0};t=xfx(o,ctx,XI[6],tt);}
-      else{o=XE[e].o[c.trait]||XE[e].o._;t=xfx(o,ctx,XI[e],XE[e].tt);}
+      else{dxSee('e:'+XE[e].tt);o=XE[e].o[c.trait]||XE[e].o._;t=xfx(o,ctx,XI[e],XE[e].tt);}
       gainXp(6);
     }else{ // เหตุการณ์ทางแยก ให้เราเลือก
-      const q=r()<.5?XL[Math.floor(r()*3)]:XL[3+Math.floor(r()*4)];XQ={L:q,ctx,s0};
+      const q=dxPickL();XQ={L:q,ctx,s0};
       xAsk();return;
     }
   }else{ // ไม่เจอเหตุการณ์ → ได้เงินกับ XP เฉยๆ
     S.pity++;const m=Math.round((18+c.stage*8)*B.lm*(.8+r()*.4)*(1+S.depth*.06));S.money+=m;gainXp(8+c.stage*2);
-    t='🚶 '+tmpl(pk(PL),ctx);if(r()<Math.min(.35,.08+S.depth*.01))t+=giveItem();
+    t='🚶 '+tmpl(pk(PL),ctx);if(r()<Math.min(.35,.08+S.depth*.01))t+=giveItem();if(r()<.14)t+=dxCol('w');
   }
   const ch=xChips(s0);xMsg(`<div>${t}</div>${ch?`<div class="log" style="margin-top:6px">${ch}</div>`:''}`);
   xAfter();
 }
 function xPick(k){const q=XQ;if(!q)return;XQ=null;xResolve(q,k);}
 function xResolve(q,ch){
+  if(q.fk)return dxDoor(q,ch);if(q.shop){xMsg('🛒 ออกจากร้านแล้ว');return xAfter();}
   const c=S.c,L=q.L,own=soulPick(L,c);let pick=ch,pre='';
   if(ch==null){pick=own;pre='⏳ '+c.name+'ตัดสินใจเอง: ';}
   else if(own!==ch&&Math.random()>soulObey(c,L.o[ch],cl(.35+c.bond*.006-(c.trait==='ซน'?.15:0),.2,.97))){pick=own;pre=soulDefy(c,L.o[ch]);}
@@ -802,7 +834,7 @@ function xResolve(q,ch){
   xAfter();
 }
 const EI=[{id:'rice',ic:'🍙',n:'ข้าวปั้น',e:25,p:90},{id:'juice',ic:'🧃',n:'น้ำเกลือแร่',e:50,p:170},{id:'meat',ic:'🍖',n:'เนื้อย่าง',e:100,p:320}],BAGMAX=6;
-const xCost=()=>8+Math.floor(S.depth/5)+(soulQ('homebody')?1:0)-(soulQ('wanderer')?1:0),bagN=()=>EI.reduce((a,i)=>a+(S.bag[i.id]||0),0);
+const xCost=()=>8+Math.floor(S.depth/5)+(soulQ('homebody')?1:0)-(soulQ('wanderer')?1:0)-(dxHas('pearl')?1:0),bagN=()=>EI.reduce((a,i)=>a+(S.bag[i.id]||0),0);
 function bagAdd(id){if(bagN()>=BAGMAX)return 0;S.bag[id]=(S.bag[id]||0)+1;return 1;}
 function xBagUI(){
   const e=$('xBag'),c=S.c;if(!e||!c)return;const n=bagN(),b=(f)=>`<div class="g" style="grid-template-columns:repeat(3,1fr)">${EI.map(f).join('')}</div>`;
@@ -819,7 +851,7 @@ function xBuy(id){
 }
 function xBack(forced){
   if(XQ)return xMsg('เลือกทางก่อนนะ');
-  const d=S.depth,B=BIO[S.dBi||0],b=Math.round(d*10*B.lm);
+  const d=S.depth,B=BIO[S.dBi||0],b=Math.round(d*10*B.lm*(dxHas('amph')?1.3:1));
   S.money+=b;S.depth=0;log('🏠 '+S.c.name+' กลับค่าย · ลึกสุด '+d+' ชั้น');
   const prev=forced?xLast+'<hr>':'';openExp();xMsg(`${prev}${forced?'⚡ พลังหมด! ':''}🏠 กลับถึงค่ายแล้ว · ลงลึก <b>${d}</b> ชั้น (สถิติ ${S.bestD})<div class="log" style="margin-top:6px">ของฝากจากการสำรวจ 💰+${b} · ซื้อของใหม่ได้ที่ค่าย</div>`);
   render();saveGame();
@@ -833,15 +865,24 @@ function openExp(){
   if(S.dOf!==c.seed){S.depth=0;S.dOf=c.seed;}
   if(S.depth)PX.bi=S.dBi;else if(c.stage<BIO[PX.bi].st)PX.bi=0;
   const R=62,C=(2*Math.PI*R).toFixed(1);
-  xOv(`<b>🧭 Expedition</b><div class="log">กดปุ่มค้าง 0.5 วินาที = ลงลึกอีก 1 ชั้น · ยิ่งลึกยิ่งได้ของดี แต่เปลืองพลังและอันตรายขึ้น · พลังหมดต้องกลับค่าย</div>
+  xOv(`<b>🧭 Expedition</b><div class="log">กดปุ่มค้าง 0.25 วินาที = ลงลึกอีก 1 ชั้น · ยิ่งลึกยิ่งได้ของดี แต่เปลืองพลังและอันตรายขึ้น · พลังหมดต้องกลับค่าย</div>
   <div class="g" style="grid-template-columns:repeat(3,1fr)">${BIO.map((b,k)=>`<button class="btn ${PX.bi===k?'on':''}" style="padding:8px 2px" onclick="PX.bi=${k};openExp()" ${c.stage<b.st||(S.depth&&S.dBi!==k)?'disabled':''}>${b.ic} ${b.n}<br><small>${c.stage<b.st?'ร่าง '+b.st+'+':b.d}</small></button>`).join('')}</div>
-  <div id="xSt" style="text-align:center"></div>
-  <div style="display:grid;place-items:center"><svg id="xHold" width="150" height="150" viewBox="0 0 150 150" style="touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer"><circle cx="75" cy="75" r="${R}" fill="var(--bg)" stroke="var(--bd)" stroke-width="10"/><circle id="xRing" cx="75" cy="75" r="${R}" fill="none" stroke="${BIO[PX.bi].col}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}" transform="rotate(-90 75 75)"/><text x="75" y="80" text-anchor="middle" font-size="40">${BIO[PX.bi].ic}</text><text x="75" y="108" text-anchor="middle" font-size="12" fill="currentColor">กดค้าง 0.5 วิ</text></svg></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center">
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+      <div class="sv" style="width:100%;max-width:120px;margin:0 auto">${svg(c)}</div>
+      <div id="xSt" style="text-align:center;font-size:11px;line-height:1.45"></div>
+    </div>
+    <div style="display:grid;place-items:center">
+      <svg id="xHold" viewBox="0 0 150 150" style="width:100%;max-width:140px;height:auto;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer"><circle cx="75" cy="75" r="${R}" fill="var(--bg)" stroke="var(--bd)" stroke-width="10"/><circle id="xRing" cx="75" cy="75" r="${R}" fill="none" stroke="${BIO[PX.bi].col}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}" transform="rotate(-90 75 75)"/><text x="75" y="80" text-anchor="middle" font-size="40">${BIO[PX.bi].ic}</text><text x="75" y="108" text-anchor="middle" font-size="12" fill="currentColor">กดค้าง 0.25 วิ</text></svg>
+    </div>
+  </div>
+
   <div class="card" id="xRes" style="min-height:56px;text-align:left">${S.depth?'ลงลึกต่อไหม… หรือกลับค่ายก่อน':'ที่ค่าย: เตรียมของแล้วกดค้างที่ปุ่มเพื่อออกสำรวจ'}</div>
   <div id="xBag"></div>
-  <div class="g" style="grid-template-columns:repeat(${S.depth?3:2},1fr)">${S.depth?'<button class="btn" onclick="xBack()">🏠 กลับค่าย</button>':''}<button class="btn" onclick="openAlbum()">📖 อัลบั้ม</button><button class="btn" onclick="closeX()">ปิด</button></div>`);
+  <div class="g" style="grid-template-columns:repeat(auto-fit,minmax(80px,1fr))">${S.depth?'<button class="btn" onclick="xBack()">🏠 กลับค่าย</button>':''}<button class="btn" onclick="openAlbum()">📖 อัลบั้ม</button><button class="btn" onclick="dxInv()">🎒 กล่องของ</button><button class="btn" onclick="dxCodex()">📚 สมุดสำรวจ</button><button class="btn" onclick="closeX()">ปิด</button></div>`);
   xStat();xBagUI();xBind();
-}
+  }
 function xRing(p){const e=$('xRing');if(e)e.setAttribute('stroke-dashoffset',(2*Math.PI*62*(1-p)).toFixed(1));}
 function xBind(){
   const e=$('xHold');if(!e)return;
@@ -850,7 +891,7 @@ function xBind(){
   e.addEventListener('contextmenu',ev=>ev.preventDefault());
 }
 function xLoop(){
-  if(!xH)return;const p=Math.min(1,(performance.now()-xH.t)/500);xRing(p);
+  if(!xH)return;const p=Math.min(1,(performance.now()-xH.t)/250);xRing(p);
   if(p>=1){xH=null;try{navigator.vibrate(25);}catch(_){}setTimeout(()=>xRing(0),120);xGo();return;}
   requestAnimationFrame(xLoop);
 }
@@ -865,17 +906,18 @@ const FO=[['🐺','🐗'],['🦂','🐍'],['🐻','🦣']];
 let XBm='';
 function xAsk(){
   const q=XQ,c=S.c;
-  xMsg(`<b>${q.f?(q.f.boss?'👑 บอส!':'⚔️ ถูกท้าสู้!'):'📨 '+c.name+'ส่งสารมา'}</b><div style="margin:6px 0">“${tmpl(q.L.q,q.ctx)}”</div>${q.L.o.map((o,k)=>`<button class="btn" style="display:block;width:100%;margin-top:6px" onclick="xPick(${k})">${o.l}</button>`).join('')}<small style="color:var(--mu)">สนิท ${Math.round(c.bond)} · ยิ่งสนิทยิ่งเชื่อฟัง ไม่เลือกก็ปล่อยให้ตัดสินเอง</small>`);
+  xMsg(`<b>${q.f?(q.f.boss?'👑 บอส!':'⚔️ ถูกท้าสู้!'):(q.L.h||'📨 '+c.name+'ส่งสารมา')}</b><div style="margin:6px 0">“${tmpl(q.L.q,q.ctx)}”</div>${q.L.o.map((o,k)=>`<button class="btn" style="display:block;width:100%;margin-top:6px" onclick="xPick(${k})">${o.l}</button>`).join('')}<small style="color:var(--mu)">สนิท ${Math.round(c.bond)} · ยิ่งสนิทยิ่งเชื่อฟัง ไม่เลือกก็ปล่อยให้ตัดสินเอง</small>`);
   xStat();xBagUI();
 }
 function xChallenge(boss){
+  if(!boss&&dxHas('star')&&Math.random()<.5){xMsg('🌠 เงาแสงเหนือพาเดินผ่านศัตรูไปโดยไม่มีใครเห็น');return xAfter();}
   const c=S.c,B=BIO[PX.bi],D=S.depth,ctx=xctx(),ic=FO[PX.bi][boss?1:0],pay=Math.round((50+D*12)*(boss?3:1));
   ctx.foe=B.m;
-  const f={ic,name:boss?'เจ้าแห่ง'+B.m:B.m,boss:boss?1:0};
+  const pt=boss?dxBoss():null;if(pt)dxSee('b:'+pt.id);const f={ic,name:boss?'เจ้าแห่ง'+B.m+' · '+pt.n:B.m,boss:boss?1:0,pat:pt?pt.id:''};
   const o=[{l:'⚔️ สู้เลย!',f:1}];
   if(!boss)o.push({l:'🏃 หนี (ใช้ความเร็ว)',x:'{n}วิ่งหนี{foe}สุดชีวิต',c:'spd',e:-5,fl:1});
   o.push({l:`💰 จ่ายค่าผ่านทาง (฿${pay})`,x:boss?'{n}โยนถุงเงินให้ผู้คุมทาง มันเลยหลีกทางให้':'{n}โยนเหรียญให้{foe} มันเลยหลีกทางให้',m:-pay});
-  const L={ti:boss?'ศึกบอสชั้น '+D:'ศึกกับ'+B.m,q:boss?`👑 ชั้น ${D}! เจ้าแห่ง${B.m}ปรากฏตัวขวางทางลงลึก!`:`${ic} ${B.m}ขวางทาง แยกเขี้ยวท้าสู้! 👊`,d:{'ขยัน':boss?0:1,_:0},o};
+  const L={ti:boss?'ศึกบอสชั้น '+D:'ศึกกับ'+B.m,q:boss?`👑 ชั้น ${D}! เจ้าแห่ง${B.m}ปรากฏตัวขวางทางลงลึก!<br><small>⚠️ ${pt?pt.n+': '+pt.tip:''}</small>`:`${ic} ${B.m}ขวางทาง แยกเขี้ยวท้าสู้! 👊`,d:{'ขยัน':boss?0:1,_:0},o};
   XQ={L,ctx,s0:xSnap(),f};xAsk();
 }
 function xFight(f){
@@ -891,20 +933,20 @@ function xFight(f){
 }
 function xHeal(){
   const b=S.b;if(!b||!b.xf||b.end)return;const i=EI.find(x=>S.bag[x.id]>0);if(!i)return;
-  S.bag[i.id]--;const h=Math.round(i.e*1.2);b.ph=Math.min(b.pm,b.ph+h);fx('p','+'+h,'heal');b.L.unshift(`${i.ic} กิน${i.n} HP +${h}`);updBattle();
+  S.bag[i.id]--;b.cure=2;const h=Math.round(i.e*1.2);b.ph=Math.min(b.pm,b.ph+h);fx('p','+'+h,'heal');b.L.unshift(`${i.ic} กิน${i.n} HP +${h}`);updBattle();
 }
 function xFightEnd(w,b){
   const c=S.c,D=S.depth,B=BIO[PX.bi],f=b.xf,s0=xSnap();let t;
   if(w){
     qInc('win');const m=Math.round((60+D*14)*B.lm*(f.boss?3:1)*(.8+Math.random()*.4));S.money+=m;gainXp(f.boss?40:14+Math.round(D/2));c.bond=cl(c.bond+(b.an?3:2));
     t=`🏆 ชนะ${f.name}!`;
-    if(f.boss){if(Math.random()<.5)S.crystal++;t+=giveItem(true);}else if(Math.random()<.2)t+=giveItem();
+    if(f.boss){if(Math.random()<.5)S.crystal++;t+=giveItem(true);t+=dxCol('b');}else if(Math.random()<.2)t+=giveItem();
     const p=f.rival&&S.npcs.find(x=>x.n===f.name);
     if(p&&Math.random()<.4){p.rel='f';t+=` · ${p.ic}${p.n}ยอมรับแล้ว กลายเป็นเพื่อน 💚`;}
     if(f.boss||p)S.album.unshift({ti:'ศึก'+f.name+' ชั้น '+D,bi:PX.bi,day:S.day,n:c.name,ln:[t]});S.album=S.album.slice(0,30);
   }else{
     c.bond=cl(c.bond-2);
-    if(b.an&&Math.random()<.5)t=`💀 แพ้… แต่ ${b.an}ลากกลับมาได้ทัน ปลอดภัย!`;
+    if(dxHas('pelt')){t='💀 แพ้… แต่ 🧣ขนหมีผู้พิทักษ์พากลับมาได้โดยไม่เสียอะไร';}else if(b.an&&Math.random()<.5)t=`💀 แพ้… แต่ ${b.an}ลากกลับมาได้ทัน ปลอดภัย!`;
     else{
       const lost=Math.min(S.money,Math.round(40+D*5));S.money-=lost;
       if(S.items.shield>0){S.items.shield--;t=`💀 แพ้… 🛡️ โล่ช่วยไว้ ไม่บาดเจ็บ · 💸 ทำเงินหล่น ฿${lost}`;}
@@ -916,6 +958,174 @@ function xFightEnd(w,b){
   saveGame();
 }
 function xAfterFight(){if(!S.c)return;openExp();if(XBm){xMsg(XBm);XBm='';}}
+// ===== Exploration v2: ทางแยก · พื้นที่ลับ · ร้าน/จุดพัก/ห้องสมบัติ · อากาศ · บอสหลายแบบ · ของสะสมเฉพาะพื้นที่ =====
+let dxPre='';
+const dx=()=>{const D=S.dx||(S.dx={});D.seen=D.seen||{};D.col=D.col||{};D.done=D.done||{};D.inv=D.inv||{key:0,cloak:0};D.run=D.run||{};return D;};
+const DXT={camp:['🔥','จุดพัก',['กองไฟร้าง','บ่อน้ำพักใจ','ศาลาริมทาง']],shop:['🛒','ร้านค้า',['พ่อค้าเร่','ตลาดมืด','รถเข็นสัตว์ประหลาด']],trs:['🧰','ห้องสมบัติ',['หีบโบราณ','ห้องนิรภัย','ซากเรือจม']],ev:['❓','เหตุการณ์',['']],fight:['⚔️','ศึก',['']],sec:['🕳️','พื้นที่ลับ',['']]};
+const DXD={camp:'พักฟื้น',shop:'ซื้อของ',trs:'ของล้ำค่า · เสี่ยง',ev:'ให้เลือกหลายทาง',fight:'ต่อสู้',sec:'มีรอยลึกลับ'};
+const DXS=[['โพรงรากไม้ลับ','🌳'],['ลานเห็ดเรืองแสง','🍄'],['สุสานทรายซ่อน','⚰️'],['วิหารมิราจ','🕌'],['ถ้ำน้ำแข็งโบราณ','🧊'],['หุบแสงเหนือ','🌌']];
+const DXW=[{id:'rain',ic:'🌧️',n:'ฝนพรำ',bi:[0,1,2],e:1,like:'ซน'},{id:'bloom',ic:'🌸',n:'ดอกไม้บาน',bi:[0],e:-3,b:1,l:1.1},{id:'storm',ic:'⛈️',n:'ฟ้าคะนอง',bi:[0,2],e:2,l:1.25,like:'ซน'},{id:'heat',ic:'☀️',n:'ลมร้อนจัด',bi:[1],e:3,u:5,hate:'ตะกละ'},{id:'sand',ic:'🌪️',n:'พายุทราย',bi:[1],e:2,l:1.3},{id:'snow',ic:'❄️',n:'พายุหิมะ',bi:[2],e:4,like:'ขยัน'},{id:'aurora',ic:'🌌',n:'แสงเหนือ',bi:[2],e:-2,l:1.3},{id:'fog',ic:'🌫️',n:'หมอกหนา',bi:[0,1,2],f:1,hate:'ขี้หึง'},{id:'moon',ic:'🌕',n:'จันทร์เต็มดวง',bi:[0,1,2],s:2.5,l:1.1}];
+const DXO=[{id:'car',ic:'🐪',n:'ขบวนพ่อค้าผ่านมา',w:{shop:3}},{id:'ruin',ic:'🏛️',n:'ซากโบราณปลุกตื่น',w:{trs:2,sec:2.5}},{id:'calm',ic:'🍃',n:'ทางสงบเงียบ',w:{camp:2.5,fight:.4}},{id:'hunt',ic:'🐾',n:'ฝูงสัตว์ดุออกล่า',w:{fight:2.2},l:1.3},{id:'luck',ic:'🍀',n:'ฤกษ์งามยามดี',l:1.25},{id:'maze',ic:'🌀',n:'ทางแยกซับซ้อน',fk:2}];
+const DXB=[{id:'rage',n:'คลั่ง',tip:'เลือดต่ำกว่าครึ่งจะโกรธแรงขึ้น'},{id:'guard',n:'เกราะหนา',tip:'ตั้งการ์ดสลับรอบ ใช้ 📣 เชียร์ทะลวงเกราะ'},{id:'drain',n:'ดูดชีวิต',tip:'ฟื้น HP จากความเสียหายที่ถูกตี'},{id:'summon',n:'จอมสมุน',tip:'ทุก 3 รอบเรียกสมุนมาตีเพิ่ม'},{id:'poison',n:'พิษร้าย',tip:'พิษกำเริบทุกรอบ กินของ/โยนอาหารเพื่อล้างพิษ'},{id:'dodge',n:'ว่องไว',tip:'หลบการโจมตี ยิ่งสัตว์เร็วยิ่งโดนง่าย'}];
+const COL=[['fern','🌿','เฟิร์นแสงจันทร์',0,'w'],['mush','🍄','เห็ดกระซิบ',0,'w'],['pearl','🫧','ไข่มุกน้ำค้าง',0,'t'],['lotus','🪷','บัวหลับใต้ถ้ำ',0,'s'],['rootd','💧','หยาดรากโลก',0,'s'],['fang','🦷','เขี้ยวพญาหมาป่า',0,'b'],
+['cact','🌵','ดอกกระบองเพชรทอง',1,'w'],['shard','🪨','ศิลาทรายร้อง',1,'w'],['scarab','🪲','แมลงทับสุริยะ',1,'t'],['mirage','🔮','เศษมิราจ',1,'s'],['amph','🏺','คนโทฟาโรห์',1,'s'],['sting','🦂','หางพญาแมงป่อง',1,'b'],
+['flake','❄️','เกล็ดหิมะหกแฉก',2,'w'],['ember','🪵','ถ่านใต้น้ำแข็ง',2,'w'],['rime','🧊','ผลึกน้ำแข็งนิรันดร์',2,'t'],['star','🌠','ตะกอนแสงเหนือ',2,'s'],['bellx','🔔','ระฆังเยือกแข็ง',2,'s'],['pelt','🧣','ขนหมีผู้พิทักษ์',2,'b']];
+const CSRC={w:'พบระหว่างเดินทาง',t:'ห้องสมบัติ',s:'พื้นที่ลับ',b:'ดรอปจากบอส'};
+const wpick=a=>{let r=Math.random()*a.reduce((x,y)=>x+y[1],0);for(const [k,w] of a){if((r-=w)<=0)return k;}return a[0][0];};
+function dxSee(k){const D=dx();if(D.seen[k]){D.seen[k]++;return 0;}D.seen[k]=1;const b=50+S.depth*6;S.money+=b;dxPre+=`✨ พบสิ่งที่ไม่เคยเห็น! +฿${b}<br>`;return 1;}
+const dxVar=t=>t==='sec'?[PX.bi*2,PX.bi*2+1]:[0,1,2];
+const dxUn=t=>!!DXT[t]&&t!=='ev'&&t!=='fight'&&dxVar(t).some(i=>!dx().seen['r:'+t+i]);
+const dxLM=()=>{const R=dx().run,w=DXW.find(x=>x.id===R.wx),o=DXO.find(x=>x.id===R.om);return((w&&w.l)||1)*((o&&o.l)||1)*(dxHas('scarab')?1.25:1);};
+function dxRun(){const om=Math.random()<.65?pk(DXO):null;dx().run={om:om?om.id:'',wx:'',wl:0,cl:0};if(om)dxPre+=`${om.ic} ลางประจำทริป: ${om.n}<br>`;}
+function dxWx(c){
+  const D=dx(),R=D.run;R.wl=R.wl|0;if(dxHas('rootd'))c.en=cl(c.en+3);if(dxHas('bellx'))c.bond=cl(c.bond+1);if(R.wl>0)R.wl--;
+  if(R.wl<=0&&Math.random()<.4){const p=DXW.filter(w=>w.bi.includes(PX.bi)),u=p.filter(x=>!D.seen['w:'+x.id]),w=pk(u.length&&Math.random()<.6?u:p);
+    R.wx=w.id;R.wl=ri(3,5);dxSee('w:'+w.id);dxPre+=`${w.ic} ${w.n}เริ่มขึ้น${w.f?' · มองไม่เห็นว่าประตูมีอะไร':w.s?' · พื้นที่ลับเปิดง่ายขึ้น':w.l?' · ของที่พบดีขึ้น':''}${w.e>0?' · เปลืองพลัง':''}<br>`;
+    if(w.e>0&&D.inv.cloak>0){D.inv.cloak--;R.cl=R.wl;dxPre+='🧥 เสื้อคลุมกันผลของอากาศไว้<br>';}}
+  else if(R.wl<=0)R.wx='';
+  const w=DXW.find(x=>x.id===R.wx);if(!w)return;if(R.cl>0){R.cl--;return;}
+  let e=w.e||0;if(w.like===c.trait){e-=1;c.bond=cl(c.bond+1);dxPre+=`${c.name}ชอบ${w.n}!<br>`;}if(w.hate===c.trait){e+=2;dxPre+=`${c.name}ทนไม่ไหวกับ${w.n}<br>`;}
+  c.en=cl(c.en-e);if(w.u)c.hun=cl(c.hun-w.u);if(w.b)c.bond=cl(c.bond+w.b);
+}
+function dxCol(src){
+  const D=dx(),B=BIO[PX.bi],ps=COL.filter(x=>x[3]===PX.bi&&x[4]===src);if(!ps.length)return '';
+  const un=ps.filter(x=>!D.col[x[0]]),x=pk(un.length?un:ps),nw=!D.col[x[0]];D.col[x[0]]=(D.col[x[0]]||0)+1;
+  let t=` · ${x[1]}${x[2]}${nw?' ✨ใหม่ · '+RAR[ABL[x[0]][0]][0]+' · '+ABL[x[0]][1]:' ×'+D.col[x[0]]}`;
+  if(nw){dxSee('c:'+x[0]);D.eq=D.eq||[];if(D.eq.length<3)D.eq.push(x[0]);recordMemory('relic','ได้ '+x[2],'ของสะสมเฉพาะ'+B.n);
+    if(COL.filter(y=>y[3]===PX.bi).every(y=>D.col[y[0]])&&!D.done[PX.bi]){D.done[PX.bi]=1;S.crystal++;S.money+=500;t+=` · 🏅 สะสมครบชุด${B.n}! 💎+1 ฿500`;}}
+  return t;
+}
+function dxPickL(){
+  const D=dx(),p=XL.filter(q=>q.bi==null||q.bi===PX.bi),u=p.filter(q=>!D.seen['e:'+q.ti]),q=pk(u.length&&Math.random()<.65?u:p);dxSee('e:'+q.ti);return q;
+}
+function dxTypeW(){
+  const R=dx().run,om=DXO.find(o=>o.id===R.om),w=DXW.find(x=>x.id===R.wx),m=(om&&om.w)||{},base={camp:1,shop:.9,trs:.8,ev:2,fight:1.2,sec:.3};
+  return Object.keys(base).map(k=>[k,base[k]*(m[k]||1)*(k==='sec'?((w&&w.s)||1)*(S.depth>=3?1:0)*(1+S.c.int/80)*(dxHas('mirage')?2:1):1)*(dxUn(k)?1.8:1)]);
+}
+function dxNode(s0,ctx){
+  const om=DXO.find(o=>o.id===dx().run.om);
+  if(S.depth%((om&&om.fk)||3)===0){dxFork(s0,ctx);return 1;}
+  if(Math.random()<.3){dxEnter(wpick(dxTypeW()),s0,ctx);return 1;}
+  return 0;
+}
+function dxFork(s0,ctx){
+  const c=S.c,R=dx().run,w=DXW.find(x=>x.id===R.wx),fog=w&&w.f&&!dxHas('mirage'),ds=[];
+  while(ds.length<3)ds.push(wpick(dxTypeW().filter(x=>!ds.includes(x[0]))));
+  const un=Object.keys(DXT).filter(dxUn);if(un.length&&!ds.some(dxUn))ds[2]=pk(un);
+  const PF={'ตะกละ':['shop','camp'],'ซน':['sec','ev','fight'],'ขยัน':['trs','camp'],'ขี้หึง':['fight','trs']},pf=PF[c.trait]||[],def=Math.max(0,ds.findIndex(t=>pf.includes(t)));
+  XQ={fk:ds,def,ctx,s0,fog,L:{o:[]}};dxForkUI();
+}
+function dxForkUI(){
+  const q=XQ,c=S.c;
+  xMsg(`<b>🔀 ทางแยก ชั้น ${S.depth}</b><div class="log">${q.fog?'🌫️ หมอกหนา มองไม่เห็นว่าแต่ละประตูมีอะไร':'ประตู ✨ = มีสิ่งที่ยังไม่เคยเห็น'} · ไม่เลือก ${c.name}จะเลือกเอง</div>`+q.fk.map((t,i)=>`<button class="btn" style="display:block;width:100%;margin-top:6px" onclick="xPick(${i})">${q.fog?'❔ ประตูในหมอก':t==='sec'?'❔ ผนังมีรอยแปลก':DXT[t][0]+' '+DXT[t][1]+(dxUn(t)?' ✨':'')}<br><small>${q.fog?'ไม่รู้ว่าอะไรรออยู่':DXD[t]}</small></button>`).join(''));
+  xStat();xBagUI();
+}
+function dxDoor(q,ch){let t=q.fk[ch==null?q.def:ch];if(!$('xRes')&&(t==='shop'||t==='fight'))t='ev';if(ch==null)dxPre+=`⏳ ${S.c.name}เลือกเอง<br>`;dxEnter(t,q.s0,q.ctx);}
+function dxEnter(t,s0,ctx){
+  if(t==='fight')return xChallenge(0);
+  if(t==='shop'){const v=ri(0,2);dxSee('r:shop'+v);return dxShop(v,s0,ctx);}
+  let L;if(t==='ev')L=dxPickL();else{const v=pk(dxVar(t));dxSee('r:'+t+v);L=dxBuild(t,v);}
+  XQ={L,ctx,s0};if(!$('xRes')){const q=XQ;XQ=null;return xResolve(q,null);}xAsk();
+}
+function dxBuild(t,v){
+  const T=DXT[t],nm=t==='sec'?DXS[v][0]:T[2][v],d={'ตะกละ':1,'ซน':2,'ขยัน':2,'ขี้หึง':0,_:0};
+  if(t==='camp')return{h:`${T[0]} ${nm}`,ti:nm,q:'จุดพักกลางทางที่ปลอดภัย ใช้เวลาอย่างไรดี?',d,o:[
+    {l:'😴 นอนพัก (+35 พลัง · สนิท+1)',x:'{n}หลับสบายอยู่ข้างๆ เจ้าของ',e:35,b:1},
+    {l:'🍲 ทำอาหาร (−฿40 · +25 พลัง · สนิท+2)',x:'{n}กินอาหารร้อนๆ จนพุงกลม',m:-40,e:25,b:2,u:30},
+    {l:'🎓 ซ้อมก่อนไป (+1 สเตตัส · −8 พลัง)',x:'{n}ซ้อมท่าใหม่ข้างกองไฟ',s:lead(S.c),e:-8}]};
+  if(t==='trs')return{h:`${T[0]} ${nm}`,ti:nm,q:'ประตูหินล็อกแน่น มีแสงเล็ดลอดออกมา…',d,o:[
+    ...(dx().inv.key>0?[{l:'🗝️ ใช้กุญแจ (ได้แน่ · ของดี)',ky:1,x:'{n}ไขกุญแจ ของล้ำค่าเรียงรายอยู่',m:380,g:.5,k:'t',b:1}]:[]),
+    {l:'💪 งัดด้วยแรง (แรง · เสี่ยง)',c:'str',x:'{n}ออกแรงงัดจนบานพับหลุด',m:300,g:.3,k:'t',h:.3},
+    {l:'🧠 ถอดกลไก (ปัญญา)',c:'int',x:'{n}ไล่ลวดลายแล้วถอดกลไกได้',m:260,g:.35,k:'t'},
+    {l:'🚪 ผ่านไป',x:'{n}มองห้องครู่หนึ่งแล้วเดินต่อ',b:1}]};
+  return{h:'🕳️ พื้นที่ลับ',ti:nm,q:`${DXS[v][1]} พบ${nm}ที่ไม่มีบนแผนที่… บรรยากาศแปลกจนขนลุก`,d:{'ตะกละ':3,'ซน':2,'ขยัน':1,'ขี้หึง':0,_:1},o:[
+    {l:'💪 บุกฝ่า (แรง)',c:'str',x:'{n}ฝ่าเข้าไปถึงใจกลาง',m:260,g:.3,k:'s'},
+    {l:'🧠 ไขปริศนา (ปัญญา)',c:'int',x:'{n}ไขปริศนาที่ผนังสำเร็จ',m:240,g:.35,k:'s'},
+    {l:'⚡ ย่องเงียบ (เร็ว)',c:'spd',x:'{n}ย่องผ่านกับดักทุกจุด',m:220,g:.25,k:'s'},
+    {l:'🎲 เสี่ยงดวง (50/50)',c:'?',x:'{n}เดินมั่วๆ แล้วดันถึงห้องลับ',m:200,k:'s'}]};
+}
+function dxShop(v,s0,ctx){
+  const k=(1+S.depth*.03)*(v===1?.75:1),P=[['bag','rice','🍙','ข้าวปั้น +25 พลัง',70],['bag','meat','🍖','เนื้อย่าง +100 พลัง',280],['it','shield','🛡️','โล่กันบาดเจ็บ',250],['it','retry','🔮','ลูกแก้วลองใหม่',290],['key','key','🗝️','กุญแจห้องสมบัติ',360],['key','cloak','🧥','เสื้อคลุมกันอากาศ',210],['mys','','🎁','ถุงปริศนา (ของสะสมพื้นที่นี้)',420]];
+  XQ={shop:P.map(x=>({t:x[0],id:x[1],ic:x[2],n:x[3],p:Math.round(x[4]*k)})).sort(()=>Math.random()-.5).slice(0,4),ctx,s0,L:{o:[]},nm:DXT.shop[2][v],msg:'ยินดีต้อนรับ! ของดีราคาพิเศษ'};dxShopUI();
+}
+function dxShopUI(){
+  const q=XQ;xMsg(`<b>🛒 ${q.nm}</b> <small>฿${Math.round(S.money)}</small><div class="log">${q.msg}</div>`+q.shop.map((o,i)=>`<button class="btn" style="display:block;width:100%;margin-top:6px" onclick="dxBuy(${i})" ${o.sold||S.money<o.p?'disabled':''}>${o.ic} ${o.n} · ฿${o.p}${o.sold?' ✓':''}</button>`).join('')+`<button class="btn on" style="display:block;width:100%;margin-top:6px" onclick="dxLeave()">🚪 ออกจากร้าน</button>`);xStat();xBagUI();
+}
+function dxBuy(i){
+  const q=XQ,o=q&&q.shop&&q.shop[i];if(!o||o.sold||S.money<o.p)return;const D=dx();let m=o.ic+' ซื้อ'+o.n.split(' ')[0];
+  if(o.t==='bag'){if(!bagAdd(o.id)){q.msg='🎒 กระเป๋าเต็ม';return dxShopUI();}}
+  else if(o.t==='it')S.items[o.id]=(S.items[o.id]||0)+1;
+  else if(o.t==='key')D.inv[o.id]=(D.inv[o.id]||0)+1;
+  else m+=dxCol(pk(['w','t']));
+  S.money-=o.p;o.sold=1;q.msg=m;dxShopUI();render();saveGame();
+}
+function dxLeave(){XQ=null;xMsg('🛒 ออกจากร้านแล้ว เดินทางต่อ');xAfter();}
+function dxStat(){const R=dx().run,w=DXW.find(x=>x.id===R.wx),o=DXO.find(x=>x.id===R.om);return (o||w)?`<br>${o?o.ic:''}${w?' '+w.ic+'('+R.wl+')':''}${R.cl>0?' 🧥':''}`:'';}
+function dxBoss(){const u=DXB.filter(b=>!dx().seen['b:'+b.id]);return Math.random()<.7&&u.length?pk(u):pk(DXB);}
+function dxPat(b,pd){
+  const p=b.xf.pat;b.rn=(b.rn||0)+1;
+  if(p==='guard'&&b.rn%2===1&&b.buff<=1){b.L.unshift('🛡️ บอสตั้งการ์ด! ความเสียหายลดลง');return Math.round(pd*.4);}
+  if(p==='dodge'&&Math.random()<cl(.45-eff(S.c,'spd')*.006,.1,.4)){b.L.unshift('💨 บอสหลบได้!');return 0;}
+  if(p==='drain'){const h=Math.round(pd*.3);b.eh=Math.min(b.em,b.eh+h);b.L.unshift('🩸 บอสดูดชีวิต +'+h);}
+  return pd;
+}
+function dxPatE(b,ed){
+  const p=b.xf.pat;
+  if(p==='rage'&&b.eh<b.em*.5){if(!b.rg){b.rg=1;b.L.unshift('😡 บอสคลั่ง! ตีแรงขึ้น');}return Math.round(ed*.6);}
+  if(p==='summon'&&b.rn%3===0){b.L.unshift('🐾 สมุนวิ่งเข้ามาตีเพิ่ม');return Math.round(ed*.7);}
+  if(p==='poison'){if(b.cure>0){b.cure--;return 0;}b.L.unshift('☠️ พิษกำเริบ');return Math.round(2+S.depth*.15);}
+  return 0;
+}
+function dxCodex(){
+  const D=dx(),sn=p=>Object.keys(D.seen).filter(k=>k.startsWith(p)).length;
+  const cat=[['🚪 ห้อง/พื้นที่','r:',15],['📨 เหตุการณ์','e:',XE.length+XL.length],['👑 บอสรูปแบบต่างๆ','b:',DXB.length],['🌦️ สภาพอากาศ','w:',DXW.length],['🏺 ของสะสม','c:',COL.length]];
+  xOv(`<b>📚 สมุดสำรวจ</b><div class="log">ทุกครั้งที่ออกเดินทางมีโอกาสเจอสิ่งใหม่ — ยังมีอีกมากที่รออยู่</div>`+cat.map(([n,p,t])=>`<div class="log" style="text-align:left">${n} <b>${sn(p)}/${t}</b></div>`).join('')+
+  BIO.map((B,i)=>`<div class="card" style="text-align:left;border-left:6px solid ${B.col}"><b>${B.ic} ${B.n}</b> <small>${D.done[i]?'🏅 ครบชุด':''}</small><div class="log" style="margin:4px 0">${COL.filter(x=>x[3]===i).map(x=>D.col[x[0]]?`${x[1]}${x[2]}${D.col[x[0]]>1?'×'+D.col[x[0]]:''}`:`❔ ??? <small>(${RAR[ABL[x[0]][0]][0]} · ${CSRC[x[4]]})</small>`).join('<br>')}</div></div>`).join('')+`<div class="g"><button class="btn" onclick="openExp()">🧭 กลับไปสำรวจ</button><button class="btn" onclick="closeX()">ปิด</button></div>`);
+}
+// ===== กล่องเก็บของ + ความสามารถของสะสม (สามัญ=+สเตตัส · หายาก=เอฟเฟกต์พิเศษ · มหากาพย์=ความสามารถใหม่ · ตำนาน=โกง) =====
+const RAR={c:['สามัญ','#9aa5b1'],r:['หายาก','#4aa3ff'],e:['มหากาพย์','#b46bff'],l:['ตำนาน','#ffb300']};
+const ABL={fern:['c','+2 ปัญญา',{int:2}],mush:['c','+2 เร็ว',{spd:2}],cact:['c','+2 แรง',{str:2}],shard:['c','+2 ปัญญา',{int:2}],flake:['c','+2 เร็ว',{spd:2}],ember:['c','+2 แรง',{str:2}],
+pearl:['r','ประหยัดพลัง −1 ต่อชั้น'],scarab:['r','เงินจากเหตุการณ์ +25%'],rime:['r','เหตุการณ์ที่มีผลึก 💎 ได้เพิ่ม +15%'],rootd:['r','ฟื้นพลัง +3 ทุกชั้น'],amph:['r','ของฝากตอนกลับค่าย +30%'],bellx:['r','สนิท +1 ทุกชั้น'],
+lotus:['e','🪷 คืนชีพ: แพ้ครั้งแรกของทริป ลุกสู้ต่อด้วย HP 50%'],mirage:['e','👁️ ตาทิพย์: เห็นประตูทุกบานแม้ในหมอก · เจอพื้นที่ลับง่ายขึ้น 2 เท่า'],star:['e','🌠 เงาแสงเหนือ: 50% เดินผ่านศัตรูทั่วไปโดยไม่ต้องสู้'],
+fang:['l','🐺 เจ้าป่า: ทำความเสียหายทุกการต่อสู้ ×1.6'],sting:['l','🦂 เกราะแมงป่อง: รับความเสียหายครึ่งเดียว · สะท้อนกลับ 6% HP ศัตรูทุกรอบ'],pelt:['l','🧣 ผู้พิทักษ์: ไม่บาดเจ็บเลย · แพ้แล้วไม่เสียเงิน ไม่ถูกหามกลับ']};
+const dxHas=id=>(dx().eq||[]).includes(id);
+const dxBonus=k=>(dx().eq||[]).reduce((a,id)=>a+((ABL[id]&&ABL[id][2]&&ABL[id][2][k])||0),0);
+function dxRevive(b){const R=dx().run;if(b.xf&&dxHas('lotus')&&!R.rv){R.rv=1;b.L.unshift('🪷 บัวหลับปลุกชีพ! ลุกขึ้นสู้ต่อ');return 1;}return 0;}
+function dxInv(){
+  const D=dx(),eq=D.eq=D.eq||[],own=COL.filter(x=>D.col[x[0]]);
+  const row=x=>{const a=ABL[x[0]],r=RAR[a[0]],on=eq.includes(x[0]);return `<div class="card" style="text-align:left;border-left:6px solid ${r[1]}"><b>${x[1]} ${x[2]}</b> <small style="color:${r[1]}">${r[0]}</small>${D.col[x[0]]>1?' <small>×'+D.col[x[0]]+'</small>':''}<div class="log" style="margin:4px 0">${a[1]}</div><button class="btn ${on?'on':''}" style="padding:3px 10px" onclick="dxEq('${x[0]}')">${on?'✅ สวมอยู่ (กดถอด)':'สวมใส่'}</button></div>`;};
+  const it=Object.entries(S.items).filter(([,v])=>v>0).map(([k,v])=>{const i=ITM.find(z=>z.id===k);return i?`${i.ic}${i.n}×${v}`:'';}).join(' · ');
+  const bag=EI.filter(i=>S.bag[i.id]>0).map(i=>`${i.ic}${i.n}×${S.bag[i.id]}`).join(' · ');
+  xOv(`<b>🎒 กล่องเก็บของ</b><div class="log">สวมใส่ได้ ${eq.length}/3 ช่อง · ของสะสมให้พลังเฉพาะตอนสวมใส่</div>`+(own.length?own.map(row).join(''):'<div class="log">ยังไม่มีของสะสม — ลองสำรวจพื้นที่ลับ ห้องสมบัติ และสู้บอส</div>')+`<div class="card" style="text-align:left"><b>ของใช้</b><div class="log">🍱 ${bag||'ไม่มีอาหารในกระเป๋า'}<br>🗝️×${D.inv.key||0} · 🧥×${D.inv.cloak||0}<br>${it||'ยังไม่มีของโบราณ'}</div></div><div class="g"><button class="btn" onclick="openExp()">🧭 กลับไปสำรวจ</button><button class="btn" onclick="closeX()">ปิด</button></div>`);
+}
+function dxEq(id){const D=dx(),e=D.eq=D.eq||[],i=e.indexOf(id);if(i>=0)e.splice(i,1);else{if(e.length>=3)e.shift();e.push(id);}saveGame();dxInv();}
+// เหตุการณ์ทางแยกใหม่ (หลายตัวเลือก · บางอันเฉพาะพื้นที่)
+XL.push(
+{ti:'ทริปต้นไม้กระซิบ',bi:0,q:'ต้นไม้ใหญ่กระซิบเรียกชื่อ{n}… รากของมันขยับ 🌳',d:{'ตะกละ':3,'ซน':2,'ขยัน':0,'ขี้หึง':3,_:0},o:[
+ {l:'👂 ตั้งใจฟัง (ปัญญา)',x:'{n}ฟังเสียงกระซิบจนรู้ที่ซ่อนของ',c:'int',m:200,k:'w',s:'int'},
+ {l:'💪 ตัดรากที่ขวาง (แรง)',x:'{n}ฟันรากไม้ขาดแล้วเจอโพรง',c:'str',m:230,k:'w'},
+ {l:'🎵 ร้องเพลงให้ฟัง',x:'{n}ร้องเพลงเพี้ยนๆ ต้นไม้หัวเราะจนใบร่วง',b:3,e:15,it:1},
+ {l:'🚪 เดินผ่านไป',x:'{n}เดินผ่านไปเงียบๆ',b:1}]},
+{ti:'ทริปบ่อน้ำมิราจ',bi:1,q:'บ่อน้ำสวยงามกลางทะเลทราย… แต่เงาในน้ำไม่ตรงกับ{n} 🏜️',d:{'ตะกละ':0,'ซน':2,'ขยัน':1,'ขี้หึง':3,_:1},o:[
+ {l:'💧 ดื่ม (50/50 · +40 พลัง)',x:'{n}ดื่มน้ำจนชุ่มชื่น',c:'?',e:40,m:100},
+ {l:'⛏️ ขุดทราย (แรง)',x:'{n}ขุดลึกจนเจอของเก่า',c:'str',m:240,k:'w'},
+ {l:'🔍 ตามเงาไป (ปัญญา · มีโอกาสพบของลับ)',x:'{n}ตามเงาจนเจอทางเข้าซ่อน',c:'int',m:200,k:'s',s:'int'},
+ {l:'🚶 ถอยห่าง',x:'{n}ถอยห่างจากบ่อ ปลอดภัยไว้ก่อน',b:1}]},
+{ti:'ทริปถ้ำน้ำแข็งก้องเสียง',bi:2,q:'ถ้ำน้ำแข็งสะท้อนเสียงร้องของ{n}ซ้ำไปซ้ำมา ❄️',d:{'ตะกละ':2,'ซน':0,'ขยัน':3,'ขี้หึง':1,_:3},o:[
+ {l:'📣 ตะโกนทดสอบ (เร็ว)',x:'{n}ตะโกนจนหิมะถล่มแต่หนีทัน',c:'spd',m:260,k:'t',g:.3},
+ {l:'🧊 เจาะน้ำแข็ง (แรง)',x:'{n}ทุบน้ำแข็งเจอผลึกข้างใน',c:'str',m:220,g:.4,k:'w'},
+ {l:'🔥 ก่อไฟพัก (+30 พลัง)',x:'{n}ผิงไฟจนอุ่นสบาย',e:30,b:1},
+ {l:'🚪 เดินผ่านไป',x:'{n}ไม่สนเสียงก้อง เดินต่อ',b:1}]},
+{ti:'ทริปคนแปลกหน้าขอข้อตกลง',q:'ชายสวมผ้าคลุมยื่นถุงเงิน: “ช่วยส่งของให้หน่อย ไม่ถามอะไรทั้งนั้น” 🎭',d:{'ตะกละ':0,'ซน':0,'ขยัน':2,'ขี้หึง':3,_:3},o:[
+ {l:'🤝 รับงาน (+฿300 · เสี่ยงบาดเจ็บ)',x:'{n}แบกห่อปริศนาไปส่ง',m:300,b:-1,h:.35},
+ {l:'🗣️ ต่อรอง (ปัญญา · ได้ของ)',x:'{n}ต่อรองจนได้ของแถม',c:'int',m:200,it:1},
+ {l:'⚔️ ท้าสู้ (แรง)',x:'{n}ท้าสู้จนชายแปลกหน้าทิ้งถุงหนี',c:'str',m:420,b:1},
+ {l:'🙅 ปฏิเสธ',x:'{n}ส่ายหัวแล้วเดินหนี',b:2}]},
+{ti:'ทริปรังนกยักษ์',q:'รังนกยักษ์อยู่บนผาสูง มีของแวววาวอยู่ข้างใน 🪺',d:{'ตะกละ':2,'ซน':0,'ขยัน':3,'ขี้หึง':3,_:1},o:[
+ {l:'🧗 ปีนขึ้นไป (เร็ว)',x:'{n}ปีนผาเหมือนแมงมุม',c:'spd',m:200,it:1,k:'w'},
+ {l:'🌳 เขย่าต้นไม้ให้ตก',x:'{n}เขย่าจนของร่วงลงมา',m:120,h:.15},
+ {l:'🥚 หยิบไข่ (เสี่ยง · ผลึก)',x:'{n}ขโมยไข่ แล้ววิ่งหนีแม่นก',c:'?',g:.7,m:100,h:.3},
+ {l:'🚪 ปล่อยไว้',x:'{n}มองรังแล้วเดินต่อ',b:1}]});
 // ===== อุปกรณ์ฝึกไม่จำกัดเลเวล · ห้องฝึกเปิดบ้าน · เพื่อนจริง · เควสต์รายวัน =====
 const eqB=L=>L<=10?L*.5:5+Math.sqrt(L-10)*1.5; // ไม่มีเพดานเลเวล: Lv10 แรกเพิ่มเต็ม หลังจากนั้นโตช้าลงแต่ไม่หยุด
 const eqP=L=>Math.round(300*Math.pow(1.35,L));
