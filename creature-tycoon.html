@@ -145,6 +145,11 @@ const NAMES=['มะม่วง','ถั่วงอก','ก้อนเมฆ
 const BR={str:{n:'นักสู้',n4:'ราชานักสู้',ic:'💪'},spd:{n:'นักล่า',n4:'ราชานักล่า',ic:'⚡'},int:{n:'นักปราชญ์',n4:'ราชานักปราชญ์',ic:'🧠'}};
 const EVO_AGE=[0,0,15,30];
 const CRYSTAL_PRICE=1500;
+// ===== ค่าปรับสมดุล (แก้ตัวเลขตรงนี้ที่เดียว) =====
+// tickMs: 1 จังหวะเกม (ms) · dayTicks: กี่จังหวะต่อ 1 วัน → 1 วัน = tickMs×dayTicks (2.4s×10 = 24 วินาที, อายุขัย 60 วัน ≈ 24 นาที)
+// hunger: อิ่มลดต่อจังหวะ (ตะกละลดเร็วกว่า) · hungryBond: สนิทลดต่อจังหวะตอนหิวจัด (<20)
+// evChance/evCooldown: โอกาสเหตุการณ์สุ่มต่อวัน และจำนวนวันขั้นต่ำระหว่างเหตุการณ์
+const TUNE={tickMs:2400,dayTicks:10,hunger:1,hungerGlutton:1.5,hungryBond:1,evChance:.25,evCooldown:3};
 const CAP0=69,CAPUP=.10; // เพดานสเตตัสเริ่มต้น · เพิ่มต่อรุ่นเมื่อสัตว์ตาย (สะสมแบบทบต้น)
 const capOf=k=>Math.round((S.cap&&S.cap[k])||CAP0);
 function clampStats(c){if(!c||c.nocap)return;['str','spd','int'].forEach(k=>{const m=capOf(k);if(c[k]>m)c[k]=m;});}
@@ -153,13 +158,32 @@ let S={money:300,day:1,gen:1,crystal:0,f:{book:0,weight:0,tread:0,chef:0},c:null
 let egg,T,BT,MT,sel=null,selTO,face=1;
 
 // --- Save ---
-const store={get(){try{return localStorage.getItem(KEY)}catch(e){return null}},set(v){try{localStorage.setItem(KEY,v)}catch(e){}},del(){try{localStorage.removeItem(KEY)}catch(e){}}};
-function saveGame(){store.set(JSON.stringify(S));}
+const store={get(k){try{return localStorage.getItem(k||KEY)}catch(e){return null}},set(v,k){try{localStorage.setItem(k||KEY,v);return true}catch(e){return false}},del(){try{localStorage.removeItem(KEY);localStorage.removeItem(KEY+'_bak')}catch(e){}}};
+// เซฟแบบหน่วงเวลา (ไม่เขียนทุกจังหวะ) + เขียนทันทีเมื่อปิด/สลับแอป + สำรองไฟล์ล่าสุดทุก 60 วินาที
+let saveT=null,lastSave=0,lastBak=0,saveWarned=false,noSave=false;
+function writeSave(){
+  clearTimeout(saveT);saveT=null;if(noSave)return;lastSave=Date.now();S.v=2;
+  let j;try{j=JSON.stringify(S);}catch(e){return;}
+  if(!store.set(j)){if(!saveWarned){saveWarned=true;try{log('⚠️ บันทึกเซฟไม่ได้ (พื้นที่เต็มหรือเปิดโหมดส่วนตัว)');}catch(e){}}return;}
+  if(Date.now()-lastBak>60000){lastBak=Date.now();store.set(j,KEY+'_bak');}
+}
+function saveGame(){const w=2500-(Date.now()-lastSave);if(w<=0)writeSave();else if(!saveT)saveT=setTimeout(writeSave,w);}
+function flushSave(){if(S&&S.c)writeSave();}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)flushSave();});
+window.addEventListener('pagehide',flushSave);
+function sane(o,k,d,min){const v=o[k];if(typeof v!=='number'||!isFinite(v))o[k]=d;else if(min!=null&&v<min)o[k]=min;}
 function loadGame(){
-  let sv=null; try{sv=JSON.parse(store.get())}catch(e){}
-  if(sv) S=Object.assign(S,sv);
+  let sv=null,raw=store.get(),rec=false;
+  try{sv=JSON.parse(raw)}catch(e){}
+  if(!sv||typeof sv!=='object'){
+    if(raw)store.set(raw,KEY+'_corrupt'); // เก็บไฟล์เสียไว้ ไม่ทิ้ง
+    try{sv=JSON.parse(store.get(KEY+'_bak'));rec=!!sv;}catch(e){sv=null;}
+  }
+  if(sv&&typeof sv==='object') S=Object.assign(S,sv);
   S.f=Object.assign({book:0,weight:0,tread:0,chef:0},S.f); S.b=null; S.discoveries=Object.assign({memories:[],counts:{},biomes:{},secretReady:false},S.discoveries||{}); S.discoveries.counts=Object.assign({},S.discoveries.counts); S.discoveries.biomes=Object.assign({},S.discoveries.biomes);
-  if(S.c){ if(S.c.x==null){S.c.x=50;S.c.y=72;} if(!S.cap)S.cap={str:CAP0,spd:CAP0,int:CAP0}; delete S.c.nocap; soulEnsure(); switchScreen('home'); startGameLoop(); checkDaily(); } else startEgg();
+  sane(S,'money',300,0);sane(S,'crystal',0,0);sane(S,'day',1,1);sane(S,'gen',1,1);sane(S,'depth',0,0);
+  if(S.c){const c=S.c;['str','spd','int'].forEach(k=>sane(c,k,4,0));sane(c,'hun',70,0);sane(c,'en',100,0);sane(c,'bond',50,0);sane(c,'age',0,0);sane(c,'max',60,0);if(c.max<1)c.max=60;c.hun=cl(c.hun);c.en=cl(c.en);c.bond=cl(c.bond);}
+  if(S.c){ if(S.c.x==null){S.c.x=50;S.c.y=72;} if(!S.cap)S.cap={str:CAP0,spd:CAP0,int:CAP0}; delete S.c.nocap; soulEnsure(); switchScreen('home'); startGameLoop(); checkDaily(); if(rec)setTimeout(()=>{try{log('♻️ เซฟหลักเสีย — กู้จากไฟล์สำรองให้แล้ว');}catch(e){}},400);} else startEgg();
 }
 function resetGame(){
   // ใช้ modal ของเกมเองแทน confirm() ที่มักถูกบล็อกใน WebView / mobile / PWA
@@ -176,10 +200,11 @@ function resetGame(){
     try{ clearInterval(T); }catch(_){}
     try{ clearInterval(MT); }catch(_){}
     try{ clearInterval(BT); }catch(_){}
-    S.over=true; // กัน step() ที่อาจยังค้างคิว
+    S.over=true; noSave=true; clearTimeout(saveT); // กัน step() และการเซฟค้างคิว/pagehide เขียนทับหลังลบ
     // 2) ลบทุกคีย์ที่อาจค้าง (ชื่อเก่า + ใหม่) และ session
     try{
       localStorage.removeItem(KEY);              // creatureTycoonSave2
+      localStorage.removeItem(KEY+'_bak');localStorage.removeItem(KEY+'_corrupt');
       localStorage.removeItem('creatureTycoonSave');
       localStorage.removeItem('creatureTycoonSave1');
       sessionStorage.clear();
@@ -245,15 +270,15 @@ function hatch(){
 }
 
 // --- Loop ---
-function startGameLoop(){clearInterval(T);T=setInterval(step,1500);clearInterval(MT);MT=setInterval(moveLoop,50);}
+function startGameLoop(){clearInterval(T);T=setInterval(step,TUNE.tickMs);clearInterval(MT);MT=setInterval(moveLoop,50);}
 function step(){
   if(S.ev||S.b||S.over||S.evo||!S.c)return;
   const c=S.c; S.tick++; if(c.fierce>0)c.fierce--;
-  if(away()){visTick();if(S.tick%10===0)newDay();if(S.screen==='home')render();saveGame();return;}
-  c.hun-=c.trait==='ตะกละ'?3:2;
+  if(away()){visTick();if(S.tick%TUNE.dayTicks===0)newDay();if(S.screen==='home')render();saveGame();return;}
+  c.hun-=c.trait==='ตะกละ'?TUNE.hungerGlutton:TUNE.hunger;
   if(S.f.chef&&c.hun<30&&S.money>=20){c.hun+=40;S.money-=20;log('👨‍🍳 เชฟป้อนข้าวให้');}
   c.hun=cl(c.hun);soulStep(c);
-  const hg=c.hun<20; c.bond=cl(c.bond+(hg?-1.5:0.3));
+  const hg=c.hun<20; c.bond=cl(c.bond+(hg?-TUNE.hungryBond:0.3));
   if(!c.act)c.auto=false;
   if(c.act){
     if(c.at){doAct(c);if(c.auto&&c.act&&--c.autoLeft<=0){c.act=null;c.at=false;c.auto=false;c.wx=null;setSay('พอแล้ว~ 😮‍💨',1800);}}
@@ -261,7 +286,7 @@ function step(){
     c.en=cl(c.en+4);
     if(!S.food&&!MG&&Math.random()<0.12+c.bond*0.001)autoPick(c);
   }
-  visTick();if(S.tick%10===0) newDay();
+  visTick();if(S.tick%TUNE.dayTicks===0) newDay();
   if(S.screen==='home') render();
   saveGame();
 }
@@ -292,7 +317,7 @@ function newDay(){
   if(c.age>=c.max) return die();
   if(c.stage<3&&c.age>=EVO_AGE[c.stage+1]) return evolve();
   soulDay(c);
-  if(!away()&&Math.random()<0.3) randEv();
+  if(!away()&&S.day>=(S.evNext||0)&&Math.random()<TUNE.evChance){S.evNext=S.day+TUNE.evCooldown;randEv();}
 }
 // --- Discovery / Soul Memory ---
 function recordMemory(kind, title, detail){
@@ -389,7 +414,7 @@ function buy(k,cost){if(S.money<cost)return;S.money-=cost;S.f[k]++;openShop();re
 function buyCrystal(){if(S.money<CRYSTAL_PRICE)return;S.money-=CRYSTAL_PRICE;S.crystal++;openShop();render();saveGame();}
 
 // --- Actions ---
-const FOODS={meat:{ic:'🥩',n:'เนื้อ',p:50,d:'อิ่ม+40 · 💪+1 · ดุขึ้น'},veg:{ic:'🥬',n:'ผัก',p:20,d:'อิ่ม+25 · สนิท+2 · พลัง+5'},milk:{ic:'🥛',n:'นม',p:30,d:'อิ่ม+20 · พลัง+15 · ใจเย็น'},fish:{ic:'🐟',n:'ปลา',p:40,d:'อิ่ม+30 · 🧠+1'}};
+const FOODS={meat:{ic:'🥩',n:'เนื้อ',p:50,d:'อิ่ม+50 · 💪+1 · ดุขึ้น'},veg:{ic:'🥬',n:'ผัก',p:20,d:'อิ่ม+35 · สนิท+2 · พลัง+5'},milk:{ic:'🥛',n:'นม',p:30,d:'อิ่ม+30 · พลัง+15 · ใจเย็น'},fish:{ic:'🐟',n:'ปลา',p:40,d:'อิ่ม+40 · 🧠+1'}};
 function hideFeed(){$('feedBub').style.display='none';}
 function placeFood(){
   const e=$('food'),f=S.food; if(!e)return;
@@ -412,10 +437,10 @@ function eat(k){
 }
 function finishEat(){
   const c=S.c,k=S.food.k,f=FOODS[k]; S.food=null;
-  if(k==='meat'){c.hun=cl(c.hun+40);c.str+=1;c.fierce=20;c.bond=cl(c.bond-2);setSay('🔥 กร๊าวว! ดุขึ้นแล้ว',2500);}
-  else if(k==='veg'){c.hun=cl(c.hun+25);c.bond=cl(c.bond+2);c.en=cl(c.en+5);setSay('🥬 กรุบๆ สุขภาพดี',2000);}
-  else if(k==='milk'){c.hun=cl(c.hun+20);c.en=cl(c.en+15);c.fierce=0;setSay('🥛 อึ๊ก~ ใจเย็นลงแล้ว',2000);}
-  else{c.hun=cl(c.hun+30);c.int+=1;setSay('🐟 อร่อย! รู้สึกฉลาดขึ้น',2000);}
+  if(k==='meat'){c.hun=cl(c.hun+50);c.str+=1;c.fierce=20;c.bond=cl(c.bond-2);setSay('🔥 กร๊าวว! ดุขึ้นแล้ว',2500);}
+  else if(k==='veg'){c.hun=cl(c.hun+35);c.bond=cl(c.bond+2);c.en=cl(c.en+5);setSay('🥬 กรุบๆ สุขภาพดี',2000);}
+  else if(k==='milk'){c.hun=cl(c.hun+30);c.en=cl(c.en+15);c.fierce=0;setSay('🥛 อึ๊ก~ ใจเย็นลงแล้ว',2000);}
+  else{c.hun=cl(c.hun+40);c.int+=1;setSay('🐟 อร่อย! รู้สึกฉลาดขึ้น',2000);}
   soulEat(c,k);log(f.ic+' กิน'+f.n+'หมดแล้ว');render();saveGame();
 }
 function play(){cardGame();}
@@ -802,7 +827,7 @@ function xMilestonePick(k){
 function xGo(){
   const c=S.c,why=xWhy();if(why)return xMsg('⛔ '+why);
   if(!S.depth){S.dBi=PX.bi;S.dOf=c.seed;dxRun();c.act=null;c.at=false;c.auto=false;S.food=null;hideFeed();}PX.bi=S.dBi;const B=BIO[PX.bi];
-  c.en=cl(c.en-xCost(),0,100);c.hun=cl(c.hun-2);S.depth++;S.bestD=Math.max(S.bestD||0,S.depth);qInc('dive');
+  c.en=cl(c.en-xCost(),0,100);c.hun=cl(c.hun-1.5);S.depth++;S.bestD=Math.max(S.bestD||0,S.depth);qInc('dive');
   const s0=xSnap(),ctx=xctx(),r=Math.random;let t;dxWx(c);
   if(S.depth%10===0){log('🕳️ '+c.name+'ลงลึกถึงชั้น '+S.depth);return xChallenge(1);}
   if(S.depth%5===0){xMilestone();return;}
