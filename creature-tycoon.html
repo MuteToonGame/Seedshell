@@ -250,6 +250,7 @@ function startGameLoop(){clearInterval(T);T=setInterval(step,1500);clearInterval
 function step(){
   if(S.ev||S.b||S.over||S.evo||!S.c)return;
   const c=S.c; S.tick++; if(c.fierce>0)c.fierce--;
+  if(away()){visTick();if(S.tick%10===0)newDay();if(S.screen==='home')render();saveGame();return;}
   c.hun-=c.trait==='ตะกละ'?3:2;
   if(S.f.chef&&c.hun<30&&S.money>=20){c.hun+=40;S.money-=20;log('👨‍🍳 เชฟป้อนข้าวให้');}
   c.hun=cl(c.hun);soulStep(c);
@@ -259,7 +260,7 @@ function step(){
     if(c.at){doAct(c);if(c.auto&&c.act&&--c.autoLeft<=0){c.act=null;c.at=false;c.auto=false;c.wx=null;setSay('พอแล้ว~ 😮‍💨',1800);}}
   } else {
     c.en=cl(c.en+4);
-    if(!S.food&&Math.random()<0.12+c.bond*0.001)autoPick(c);
+    if(!S.food&&!MG&&Math.random()<0.12+c.bond*0.001)autoPick(c);
   }
   visTick();if(S.tick%10===0) newDay();
   if(S.screen==='home') render();
@@ -276,7 +277,7 @@ function autoPick(c){
   setSay('อยากไป '+SPOTS[k].ic+' ~',2000);
 }
 function doAct(c){
-  const a=c.act, F=S.f, m=(c.trait==='ขยัน'?1.3:1)*(c.hurt>S.day?.5:1)*(S.vis&&S.vis.k===a?1.25:1);
+  const a=c.act, F=S.f, m=(c.trait==='ขยัน'?1.3:1)*(c.hurt>S.day?.5:1)*(S.vis&&S.vis.k===a?1.25:1)*(c.auto?.35:1);
   if(a!=='rest'&&c.en<10){log(c.name+' หมดแรง พักก่อน');c.act='rest';c.at=false;return;}
   const SK={read:'int',lift:'str',run:'spd'}[a];if(SK&&!c.nocap&&c[SK]>=capOf(SK)){log('📈 '+c.name+'ถึงเพดาน '+STN[SK]+' ของตระกูลแล้ว');c.act=null;c.at=false;c.auto=false;c.wx=null;setSay('เต็มเพดานแล้ว!',2000);return;}
   if(a==='read'){c.int+=m*(1+eqB(F.book));c.en-=4;}
@@ -292,7 +293,7 @@ function newDay(){
   if(c.age>=c.max) return die();
   if(c.stage<3&&c.age>=EVO_AGE[c.stage+1]) return evolve();
   soulDay(c);
-  if(Math.random()<0.3) randEv();
+  if(!away()&&Math.random()<0.3) randEv();
 }
 // --- Discovery / Soul Memory ---
 function recordMemory(kind, title, detail){
@@ -552,13 +553,13 @@ function hideBub(){$('spotBub').style.display='none';clearTimeout(selTO);}
 function roomTap(e){if(e.target.id==='roomBg'||e.target.id==='room'){sel=null;hideBub();hideFeed();render();}}
 function showBub(k){
   const s=SPOTS[k],c=S.c,m=c.trait==='ขยัน'?1.3:1,b=$('spotBub');
-  const ef=k==='work'?`ได้เงิน ≈ ฿${Math.round((10+(c.str+c.spd+c.int)/4)*(c.stage>=4?1.5:1))}/ครั้ง`:k==='rest'?'ฟื้นพลัง +12/ครั้ง':`เพิ่ม ${STN[s.st]} +${(m*(1+eqB(S.f[s.f]))*(S.vis&&S.vis.k===k?1.25:1)).toFixed(1)}/ครั้ง`;
+  const ef=k==='work'?`ได้เงิน ≈ ฿${Math.round((10+(c.str+c.spd+c.int)/4)*(c.stage>=4?1.5:1))}/ครั้ง`:k==='rest'?'ฟื้นพลัง +12/ครั้ง':`🎮 มินิเกมกับสัตว์ · ${STN[s.st]} สูงสุด ≈+${(m*(1+eqB(S.f[s.f]))*(S.vis&&S.vis.k===k?1.25:1)*6).toFixed(1)}<br><small>(ถ้าสัตว์ไปฝึกเอง ได้น้อยกว่ามาก)</small>`;
   b.innerHTML=`<b>${s.ic} ${s.n}</b><br>${ef}${s.en?' · ใช้พลัง '+s.en:''}<br><small>โอกาสไม่ฟัง ~${Math.round(disPct(c,k)*100)}%${soulDisNote(c,k)?' · '+soulDisNote(c,k):''}</small><br><i>${c.act===k?'แตะอีกครั้งเพื่อยกเลิก':'แตะอีกครั้งเพื่อสั่งงาน'}</i>`;
   b.style.left=cl(s.sx,34,66)+'%'; b.style.top=(s.sy<50?s.sy+11:s.sy-30)+'%'; b.style.display='block';
   clearTimeout(selTO); selTO=setTimeout(()=>{sel=null;hideBub();render();},5000);
 }
 function tapSpot(k){
-  const c=S.c; if(!c||S.over||S.ev||S.b||S.evo)return;
+  const c=S.c; if(!c||S.over||S.ev||S.b||S.evo||MG||away())return;
   hideFeed();
   if(sel!==k){sel=k;showBub(k);render();return;}
   sel=null;hideBub();
@@ -567,11 +568,12 @@ function tapSpot(k){
     setSay('😤 ไม่ฟัง! ไม่เอา!',2500);log('😤 '+c.name+' ไม่ยอมฟัง!');
     if(Math.random()<(c.trait==='ซน'?0.5:0.25)){const b=ri(30,90);spend(b);log('ก่อเรื่อง! ค่าเสียหาย ฿'+b);}
     c.act=null;c.at=false;c.wx=null;
-  } else {c.act=k;c.at=false;c.auto=false;setSay('ไปเลย! '+SPOTS[k].ic,1500);}
+  } else if(k==='read'||k==='lift'||k==='run'){c.act=null;c.at=false;c.auto=false;mgOpen(k);}
+  else {c.act=k;c.at=false;c.auto=false;setSay('ไปเลย! '+SPOTS[k].ic,1500);}
   render();saveGame();
 }
 function moveLoop(){
-  const c=S.c; if(!c||S.ev||S.b||S.over||S.evo)return;
+  const c=S.c; if(!c||S.ev||S.b||S.over||S.evo||away())return;
   let tx,ty;
   if(S.food){tx=S.food.x-9;ty=S.food.y;}
   else if(c.act){const s=SPOTS[c.act];tx=s.tx;ty=s.ty;}
@@ -608,7 +610,8 @@ function render(){
     const cs=k=>c.nocap||c.stage>=4?'':`<small style="opacity:.55;font-weight:400">/${capOf(k)}</small>`;
     $('petStats').innerHTML=`<span>💪 ${Math.floor(eff(c,'str'))}${cs('str')}</span><span>⚡ ${Math.floor(eff(c,'spd'))}${cs('spd')}</span><span>🧠 ${Math.floor(eff(c,'int'))}${cs('int')}</span><span>💎 ${S.crystal}</span>`;
     Object.entries(SPOTS).forEach(([k,sp])=>{const e=$('sp-'+k);if(!e)return;e.className='spot'+(c.act===k?' on':'')+(sel===k?' sel':'');if(sp.f)$('lv-'+k).textContent='Lv'+S.f[sp.f];const vs=$('vs-'+k);if(vs)vs.textContent=S.vis&&S.vis.k===k?S.vis.w.ic:'';});
-    $('btnFeed').disabled=S.money<20;
+    $('btnFeed').disabled=S.money<20||away();
+    {let e=$('awayBn');if(away()){if(!e){e=document.createElement('div');e.id='awayBn';e.style.cssText='position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);z-index:50;background:var(--card);border:2px solid var(--bd);border-radius:12px;padding:10px 14px;text-align:center;font-size:13px;pointer-events:none';$('room').appendChild(e);}e.innerHTML=`🧭 ${c.name} ออกสำรวจอยู่<br><small>ชั้น ${S.depth} · กลับค่ายแล้วจะกลับมาบ้าน</small>`;$('pet').style.display='none';}else{if(e)e.remove();$('pet').style.display='';}}
     renderEvo(c); place();
   }
   renderModals();
@@ -794,7 +797,7 @@ function xMilestonePick(k){
 
 function xGo(){
   const c=S.c,why=xWhy();if(why)return xMsg('⛔ '+why);
-  if(!S.depth){S.dBi=PX.bi;S.dOf=c.seed;dxRun();}PX.bi=S.dBi;const B=BIO[PX.bi];
+  if(!S.depth){S.dBi=PX.bi;S.dOf=c.seed;dxRun();c.act=null;c.at=false;c.auto=false;S.food=null;hideFeed();}PX.bi=S.dBi;const B=BIO[PX.bi];
   c.en=cl(c.en-xCost(),0,100);c.hun=cl(c.hun-2);S.depth++;S.bestD=Math.max(S.bestD||0,S.depth);qInc('dive');
   const s0=xSnap(),ctx=xctx(),r=Math.random;let t;dxWx(c);
   if(S.depth%10===0){log('🕳️ '+c.name+'ลงลึกถึงชั้น '+S.depth);return xChallenge(1);}
@@ -852,7 +855,7 @@ function xBuy(id){
 function xBack(forced){
   if(XQ)return xMsg('เลือกทางก่อนนะ');
   const d=S.depth,B=BIO[S.dBi||0],b=Math.round(d*10*B.lm*(dxHas('amph')?1.3:1));
-  S.money+=b;S.depth=0;log('🏠 '+S.c.name+' กลับค่าย · ลึกสุด '+d+' ชั้น');
+  S.money+=b;S.depth=0;dxHome();log('🏠 '+S.c.name+' กลับค่าย · ลึกสุด '+d+' ชั้น');
   const prev=forced?xLast+'<hr>':'';openExp();xMsg(`${prev}${forced?'⚡ พลังหมด! ':''}🏠 กลับถึงค่ายแล้ว · ลงลึก <b>${d}</b> ชั้น (สถิติ ${S.bestD})<div class="log" style="margin-top:6px">ของฝากจากการสำรวจ 💰+${b} · ซื้อของใหม่ได้ที่ค่าย</div>`);
   render();saveGame();
 }
@@ -951,7 +954,7 @@ function xFightEnd(w,b){
       const lost=Math.min(S.money,Math.round(40+D*5));S.money-=lost;
       if(S.items.shield>0){S.items.shield--;t=`💀 แพ้… 🛡️ โล่ช่วยไว้ ไม่บาดเจ็บ · 💸 ทำเงินหล่น ฿${lost}`;}
       else{c.hurt=S.day+4;t=`💀 แพ้… 🩹 บาดเจ็บ · 💸 ทำเงินหล่น ฿${lost}`;}
-      t+=` · ถูกหามกลับค่าย (ลึกสุดรอบนี้ ${D} ชั้น)`;S.depth=0;
+      t+=` · ถูกหามกลับค่าย (ลึกสุดรอบนี้ ${D} ชั้น)`;S.depth=0;dxHome();
     }
   }
   b.L.unshift(t);const ch=xChips(s0);XBm=`<div>${t}</div>${ch?`<div class="log" style="margin-top:6px">${ch}</div>`:''}`;
@@ -1099,6 +1102,52 @@ function dxInv(){
   xOv(`<b>🎒 กล่องเก็บของ</b><div class="log">สวมใส่ได้ ${eq.length}/3 ช่อง · ของสะสมให้พลังเฉพาะตอนสวมใส่</div>`+(own.length?own.map(row).join(''):'<div class="log">ยังไม่มีของสะสม — ลองสำรวจพื้นที่ลับ ห้องสมบัติ และสู้บอส</div>')+`<div class="card" style="text-align:left"><b>ของใช้</b><div class="log">🍱 ${bag||'ไม่มีอาหารในกระเป๋า'}<br>🗝️×${D.inv.key||0} · 🧥×${D.inv.cloak||0}<br>${it||'ยังไม่มีของโบราณ'}</div></div><div class="g"><button class="btn" onclick="openExp()">🧭 กลับไปสำรวจ</button><button class="btn" onclick="closeX()">ปิด</button></div>`);
 }
 function dxEq(id){const D=dx(),e=D.eq=D.eq||[],i=e.indexOf(id);if(i>=0)e.splice(i,1);else{if(e.length>=3)e.shift();e.push(id);}saveGame();dxInv();}
+// ===== สัตว์ออกสำรวจ = ไม่อยู่บ้าน · ฝึกเอง (ช้า) vs สั่งฝึก (มินิเกมประเภทละ 1) =====
+let MG=null;
+const away=()=>!!(S.c&&S.depth>0&&S.dOf===S.c.seed);
+function dxHome(){const c=S.c;if(c){c.x=50;c.y=72;c.act=null;c.at=false;c.auto=false;c.wx=null;setSay('🏠 กลับบ้านแล้ว~',2000);}}
+function mgOpen(k){
+  const c=S.c,sp=SPOTS[k],cost=Math.round(sp.en*2.5);
+  if(c.en<cost){setSay('เหนื่อยเกินไปแล้ว… 😮‍💨 (ต้องมีพลัง '+cost+')',2500);return;}
+  if(!c.nocap&&c[sp.st]>=capOf(sp.st)){setSay('เต็มเพดานแล้ว!',2000);return;}
+  MG={k,SK:sp.st,cost};const d=document.createElement('div');d.id='mgUI';
+  d.innerHTML=`<div class="ov"><div class="md"><b id="mgT"></b><div class="sv" style="width:90px;margin:4px auto">${svg(c)}</div><div id="mgB"></div><button class="btn" style="margin-top:8px" onclick="mgClose()">ปิด</button></div></div>`;
+  document.body.appendChild(d);({lift:mgLift,run:mgRun,read:mgRead})[k]();
+}
+function mgClose(){if(MG)clearInterval(MG.t);MG=null;const e=$('mgUI');if(e)e.remove();render();}
+function mgEnd(sc){
+  if(!MG||MG.done)return;MG.done=1;clearInterval(MG.t);MG.tap=null;MG.mv=null;
+  const c=S.c,k=MG.k,m=(c.trait==='ขยัน'?1.3:1)*(c.hurt>S.day?.5:1)*(S.vis&&S.vis.k===k?1.25:1),g=m*(1+eqB(S.f[SPOTS[k].f]))*(1+5*sc);
+  c[MG.SK]+=g;c.en=cl(c.en-MG.cost);c.bond=cl(c.bond+(sc>=.6?2:sc>=.3?1:0));soulAct(c,k);qInc('train',4);
+  const t=sc>=.9?'สมบูรณ์แบบ! 🌟':sc>=.6?'เยี่ยมมาก!':sc>=.3?'พอใช้':'พลาดไปหน่อย';
+  $('mgB').innerHTML=`<div style="font-size:20px;margin:8px">${t}</div><div class="log">${STN[MG.SK]} +${g.toFixed(1)} · 🔋 −${MG.cost}${sc>=.3?' · ❤️ สนิทขึ้น':''}</div>`;saveGame();render();
+}
+function mgLift(){ // แรง: จับจังหวะขีดให้อยู่ในโซนเขียว 5 ครั้ง (ยิ่งแรงโซนยิ่งกว้าง)
+  const c=S.c,w=Math.round(cl(18+eff(c,'str')*.25,18,40));let p=0,dr=1,rep=0,sum=0,z=ri(10,70);
+  $('mgT').textContent='🏋️ ยกน้ำหนักกับ'+c.name+' · กดตอนขีดอยู่ในโซนเขียว';
+  $('mgB').innerHTML=`<div style="position:relative;height:26px;background:var(--bg);border:2px solid var(--bd);border-radius:8px;margin:10px 0"><div id="mgZ" style="position:absolute;left:${z}%;width:${w}%;top:0;bottom:0;background:#4caf6a;opacity:.6"></div><div id="mgM" style="position:absolute;left:0;width:4px;top:-3px;bottom:-3px;background:var(--tx)"></div></div><div class="log" id="mgS">ครั้งที่ 1/5</div><button class="btn on" style="width:100%;padding:14px" onclick="MG.tap&&MG.tap()">💪 ยก!</button>`;
+  MG.t=setInterval(()=>{p+=dr*3*(1+rep*.15);if(p>=96){p=96;dr=-1;}if(p<=0){p=0;dr=1;}$('mgM').style.left=p+'%';},40);
+  MG.tap=()=>{const d=Math.abs(p+2-(z+w/2));sum+=d<w/6?1:d<w/2?.75:d<w/2+8?.25:0;rep++;if(rep>=5)return mgEnd(sum/5);z=ri(8,100-w-8);$('mgZ').style.left=z+'%';$('mgS').textContent=`ครั้งที่ ${rep+1}/5`;};
+}
+function mgRun(){ // เร็ว: หลบหินใน 3 เลน (ยิ่งเร็วหินยิ่งช้า)
+  const c=S.c,N=12,R=8;let lane=1,obs=[],tick=0,sp=0,hit=0,pass=0;
+  $('mgT').textContent='🏃 วิ่งกับ'+c.name+' · กดซ้าย/ขวาเพื่อหลบหิน';
+  $('mgB').innerHTML=`<pre id="mgS" style="font-size:20px;line-height:1.2;margin:6px auto;font-family:inherit;text-align:center"></pre><div class="g"><button class="btn" style="padding:14px" onclick="MG.mv&&MG.mv(-1)">⬅️</button><button class="btn" style="padding:14px" onclick="MG.mv&&MG.mv(1)">➡️</button></div>`;
+  const draw=()=>{const rows=[];for(let y=0;y<R;y++){const r=['⬜','⬜','⬜'];obs.forEach(o=>{if(o.y===y)r[o.l]='🪨';});rows.push(r.join(''));}const r=['⬜','⬜','⬜'];r[lane]='🐾';rows.push(r.join(''));$('mgS').textContent=rows.join('\n')+`\n✅ ${pass}/${N} · 💥 ${hit}`;};
+  MG.mv=d=>{lane=cl(lane+d,0,2);draw();};
+  MG.t=setInterval(()=>{tick++;obs.forEach(o=>o.y++);obs=obs.filter(o=>{if(o.y>=R){if(o.l===lane)hit++;else pass++;return false;}return true;});
+    if(tick%3===0&&sp<N){obs.push({l:ri(0,2),y:0});sp++;}draw();if(sp>=N&&!obs.length)mgEnd(pass/N);},Math.round(cl(300-eff(c,'spd')*1.5,160,300)));draw();
+}
+function mgRead(){ // ปัญญา: จำลำดับหนังสือแล้วกดตาม 4 รอบ (ยิ่งฉลาดยิ่งแสดงช้าลงให้จำ)
+  const g=MG,c=S.c,I=['📕','📗','📘','📙'],sp=Math.round(cl(700-eff(c,'int')*6,350,700));let seq=[],pos=0,rd=0,ok=0;
+  $('mgT').textContent='📖 อ่านหนังสือกับ'+c.name+' · จำลำดับแล้วกดตาม';
+  $('mgB').innerHTML=`<div id="mgS" class="log">ดูให้ดี…</div><div class="g" style="grid-template-columns:repeat(4,1fr)">${I.map((x,i)=>`<button class="btn" id="mb${i}" style="font-size:26px;padding:10px 0" onclick="MG.tap&&MG.tap(${i})">${x}</button>`).join('')}</div>`;
+  const fl=i=>{const e=$('mb'+i);if(e){e.classList.add('on');setTimeout(()=>e.classList.remove('on'),sp*.6);}};
+  const next=()=>{if(MG!==g)return;rd++;seq=Array.from({length:2+rd},()=>ri(0,3));pos=0;MG.tap=null;$('mgS').textContent=`รอบ ${rd}/4 · ดูให้ดี…`;
+    seq.forEach((v,i)=>setTimeout(()=>{if(MG===g)fl(v);},500+i*sp));
+    setTimeout(()=>{if(MG!==g)return;$('mgS').textContent=`รอบ ${rd}/4 · ตาคุณ!`;MG.tap=i=>{fl(i);if(i!==seq[pos])return mgEnd(ok/4);pos++;if(pos>=seq.length){ok++;if(rd>=4)return mgEnd(1);MG.tap=null;setTimeout(next,600);}};},500+seq.length*sp);};
+  next();
+}
 // เหตุการณ์ทางแยกใหม่ (หลายตัวเลือก · บางอันเฉพาะพื้นที่)
 XL.push(
 {ti:'ทริปต้นไม้กระซิบ',bi:0,q:'ต้นไม้ใหญ่กระซิบเรียกชื่อ{n}… รากของมันขยับ 🌳',d:{'ตะกละ':3,'ซน':2,'ขยัน':0,'ขี้หึง':3,_:0},o:[
