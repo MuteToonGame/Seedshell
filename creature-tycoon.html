@@ -222,7 +222,7 @@ function loadGame(){
   if(sv&&typeof sv==='object') S=Object.assign(S,sv);
   S.f=Object.assign({book:0,weight:0,tread:0,chef:0},S.f); S.b=null; S.discoveries=Object.assign({memories:[],counts:{},biomes:{},secretReady:false},S.discoveries||{}); S.discoveries.counts=Object.assign({},S.discoveries.counts); S.discoveries.biomes=Object.assign({},S.discoveries.biomes);
   sane(S,'money',300,0);sane(S,'crystal',0,0);sane(S,'day',1,1);sane(S,'gen',1,1);sane(S,'depth',0,0);
-  if(S.c){const c=S.c;['str','spd','int'].forEach(k=>sane(c,k,4,0));sane(c,'hun',70,0);sane(c,'en',100,0);sane(c,'bond',50,0);sane(c,'age',0,0);sane(c,'max',60,0);if(c.max<1)c.max=60;c.hun=cl(c.hun);c.en=cl(c.en);c.bond=cl(c.bond);}
+  if(S.c){const c=S.c;['str','spd','int'].forEach(k=>sane(c,k,4,0));sane(c,'hun',70,0);sane(c,'en',100,0);sane(c,'bond',50,0);sane(c,'age',0,0);sane(c,'max',60,0);if(c.max<1)c.max=60;c.hun=cl(c.hun);c.en=cl(c.en);c.bond=cl(c.bond);ctNormalize(c);}
   if(S.c){ if(S.c.x==null){S.c.x=50;S.c.y=72;} if(!S.cap)S.cap={str:CAP0,spd:CAP0,int:CAP0}; delete S.c.nocap; soulEnsure(); switchScreen('home'); startGameLoop(); checkDaily(); if(rec)setTimeout(()=>{try{log('♻️ เซฟหลักเสีย — กู้จากไฟล์สำรองให้แล้ว');}catch(e){}},400);} else startEgg();
 }
 function resetGame(){
@@ -913,6 +913,96 @@ function xMilestonePick(k){
   xAfter();
 }
 
+
+// ===== Phase 1.1: Mood + Expedition Story Chain =====
+// ข้อมูลใหม่รองรับเซฟเก่า โดยไม่ลบหรือเขียนทับประวัติเดิม
+function ctNormalize(c){
+  if(!c)return;
+  if(!c.soul)c.soul={};
+  const so=c.soul;
+  so.mood=Object.assign({key:'curious',until:0,reason:'เพิ่งเริ่มออกเดินทาง'},so.mood||{});
+  so.ax=Object.assign({bold:0,kind:0,play:0},so.ax||{});
+  so.j=Array.isArray(so.j)?so.j:[];
+  so.fr=so.fr||{};so.fear=so.fear||{};so.grudge=so.grudge||{};
+  S.ctStory=Object.assign({lost:0,lastDepth:0},S.ctStory||{});
+}
+const CT_MOODS={
+  curious:{ic:'🔎',name:'อยากรู้อยากเห็น'},
+  confident:{ic:'🔥',name:'มั่นใจ'},
+  caring:{ic:'💗',name:'ห่วงใย'},
+  cautious:{ic:'🌧️',name:'ระมัดระวัง'},
+  lonely:{ic:'💭',name:'คิดถึงเพื่อน'}
+};
+function ctMood(c,key,days,reason){
+  if(!c||!c.soul)return;ctNormalize(c);
+  c.soul.mood={key,until:(S.day||1)+days,reason:reason||''};
+}
+function ctMoodText(c){
+  const m=c&&c.soul&&c.soul.mood||{key:'curious'},d=CT_MOODS[m.key]||CT_MOODS.curious;
+  return `${d.ic} ${d.name}${m.reason?' · '+m.reason:''}`;
+}
+function ctMoodTick(c){
+  const so=c&&c.soul;if(!so)return;ctNormalize(c);
+  if(so.mood.until>0&&S.day>so.mood.until)so.mood={key:'curious',until:0,reason:'อารมณ์เริ่มกลับมาสงบ'};
+}
+function ctMoodMemory(kind){
+  const c=S.c;if(!c||!c.soul)return;
+  if(kind==='rescue'||kind==='bond'||kind==='friend')ctMood(c,'caring',3,'มีเรื่องดี ๆ เกิดขึ้นกับเพื่อน');
+  else if(kind==='win'||kind==='boss'||kind==='revenge'||kind==='streak')ctMood(c,'confident',2,'ความสำเร็จทำให้ฮึกเหิม');
+  else if(kind==='lose'||kind==='fear'||kind==='hurt'||kind==='slump')ctMood(c,'cautious',2,'ยังจำเหตุการณ์ที่ไม่ดีได้');
+  else if(kind==='relic'||kind==='secret'||kind==='brave')ctMood(c,'curious',3,'อยากค้นพบสิ่งใหม่');
+}
+function ctMoodChoiceScore(c,o){
+  const key=c&&c.soul&&c.soul.mood?c.soul.mood.key:'curious',help=optHelp(o),lean=optLean(o);
+  if(key==='caring')return help*.85;
+  if(key==='confident')return lean*.45;
+  if(key==='cautious')return (o.fl?-.45:0)+(o.h?-.3:0)+(o.c?-.15:0);
+  if(key==='lonely')return (o.n||help>0||((o.b||0)>0))?.45:0;
+  if(key==='curious')return (o.k||o.it||o.g||o.c==='int')?.4:0;
+  return 0;
+}
+function ctStoryTry(ctx,s0){
+  const c=S.c;if(!c||!S.depth||S.depth%5===0||S.depth%10===0)return false;
+  ctNormalize(c);
+  const st=S.ctStory.lost;if(S.ctStory.lastDepth===S.depth)return false;
+  let L=null;
+  if(st===0&&S.depth>=2&&Math.random()<.22){
+    L={ti:'รอยเท้าเล็กในพุ่มไม้',q:'{n}ได้ยินเสียงร้องเบา ๆ จากพุ่มไม้ มีสัตว์ตัวเล็กหลงทางอยู่ 🐾',o:[
+      {l:'🤝 เข้าไปช่วย (ใช้เงิน ฿40)',x:'{n}พาสัตว์ตัวเล็กออกจากพุ่มไม้และแบ่งอาหารให้',m:-40,b:4,n:'f'},
+      {l:'🍖 แบ่งอาหารให้',x:'{n}แบ่งอาหารให้สัตว์ตัวเล็ก ก่อนช่วยชี้ทางกลับบ้าน',b:3,u:5},
+      {l:'🚶 เดินผ่านไป',x:'{n}ลังเลเล็กน้อย แต่เลือกเดินทางต่อ',b:-1}
+    ]};
+  }else if(st===1&&S.depth>=3&&Math.random()<.34){
+    L={ti:'เสียงเรียกจากเส้นทางเดิม',q:'ระหว่างทาง {n} ได้ยินเสียงคุ้น ๆ สัตว์ที่เคยช่วยกำลังถูกขวางทางอยู่ 🐾',o:[
+      {l:'🛡️ เข้าไปช่วยอีกครั้ง',x:'{n}ยืนขวางและช่วยเพื่อนตัวเล็กให้ผ่านไปได้',b:4,n:'f'},
+      {l:'🧭 พาไปทางปลอดภัย',x:'{n}พาเพื่อนตัวเล็กอ้อมไปยังเส้นทางที่ปลอดภัย',b:3,m:60},
+      {l:'👀 เฝ้าดูอยู่ห่าง ๆ',x:'{n}เฝ้าดูจนแน่ใจว่าเพื่อนปลอดภัย แล้วจึงเดินต่อ',b:1}
+    ]};
+  }else if(st===2&&S.depth>=4&&Math.random()<.42){
+    L={ti:'ของขวัญจากเพื่อนเก่า',q:'เพื่อนตัวเล็กกลับมาหา {n} อีกครั้ง พร้อมของขวัญที่เก็บมาให้ 🎁',o:[
+      {l:'💗 รับมิตรภาพไว้',x:'{n}รับของขวัญและใช้เวลาร่วมกัน กลายเป็นเพื่อนแท้',b:6,m:120,it:1},
+      {l:'🔎 สำรวจของขวัญด้วยกัน',x:'{n}ช่วยกันตรวจดูของขวัญและพบของมีค่า',b:3,m:180,k:'w'},
+      {l:'👋 กล่าวลาอย่างอบอุ่น',x:'{n}กล่าวลาและจดจำมิตรภาพครั้งนี้ไว้',b:2}
+    ]};
+  }
+  if(!L)return false;
+  S.ctStory.lastDepth=S.depth;XQ={L,ctx,s0,ctStory:'lost',ctStage:st};xAsk();return true;
+}
+function ctStoryResolve(q,pick){
+  if(!q||!q.ctStory)return;
+  const st=q.ctStage;
+  if(st===0){
+    S.ctStory.lost=pick===2?-1:1;
+    if(pick!==2){recordMemory('rescue','พบสัตว์หลงทางและเลือกช่วยเหลือ','การตัดสินใจครั้งนี้อาจนำไปสู่มิตรภาพในภายหลัง');ctMood(S.c,'caring',3,'ได้ช่วยสัตว์ที่กำลังเดือดร้อน');}
+  }else if(st===1){
+    S.ctStory.lost=pick===2?1:2;
+    if(pick!==2){recordMemory('bond','กลับมาช่วยเพื่อนเก่าอีกครั้ง','มิตรภาพที่เริ่มต้นจากการช่วยเหลือเติบโตขึ้น');ctMood(S.c,'confident',2,'ดีใจที่ได้ช่วยเพื่อนอีกครั้ง');}
+  }else if(st===2){
+    S.ctStory.lost=3;recordMemory('friend','มิตรภาพกับสัตว์หลงทาง','เพื่อนเก่ากลับมาตอบแทนความช่วยเหลือ');ctMood(S.c,'caring',4,'มีเพื่อนที่จดจำความดีของเรา');
+  }
+  saveGame();
+}
+
 function xGo(){
   const c=S.c,why=xWhy();if(why)return xMsg('⛔ '+why);
   if(!S.depth){S.dBi=PX.bi;S.dOf=c.seed;dxRun();c.act=null;c.at=false;c.auto=false;S.food=null;hideFeed();}PX.bi=S.dBi;const B=BIO[PX.bi];
@@ -921,6 +1011,7 @@ function xGo(){
   if(S.depth%10===0){log('🕳️ '+c.name+'ลงลึกถึงชั้น '+S.depth);return xChallenge(1);}
   if(S.depth%5===0){xMilestone();return;}
   if(dxNode(s0,ctx))return;
+  if(ctStoryTry(ctx,s0))return;
   if(r()<Math.min(.9,.45+S.pity*.15)){
     S.pity=0;const x=r();
     if(x<.3+Math.min(.1,S.depth*.005)){xChallenge(0);return;}
@@ -948,7 +1039,7 @@ function xResolve(q,ch){
   const c=S.c,L=q.L,own=soulPick(L,c);let pick=ch,pre='';
   if(ch==null){pick=own;pre='⏳ '+c.name+'ตัดสินใจเอง: ';}
   else if(own!==ch&&Math.random()>soulObey(c,L.o[ch],cl(.35+c.bond*.006-(c.trait==='ซน'?.15:0),.2,.97))){pick=own;pre=soulDefy(c,L.o[ch]);}
-  soulDecision(c,L,ch,pick);if(L.o[pick].f)return xFight(q.f);
+  soulDecision(c,L,ch,pick);ctStoryResolve(q,pick);if(L.o[pick].f)return xFight(q.f);
   const o=Object.assign({},L.o[pick]);o.x=pre+o.x;
   const t=xfx(o,q.ctx,'✉️',L.ti,1);gainXp(10);const ch2=xChips(q.s0);
   xMsg(`${xOut(t,ch2)}`);
@@ -1473,7 +1564,7 @@ function soulInit(c,L){
   const r=rng((c.seed||1)*7+13),ax={bold:(r()-.5)*90,kind:(r()-.5)*90,play:(r()-.5)*90};
   if(L&&L.soul&&L.soul.ax)['bold','kind','play'].forEach(k=>{ax[k]=ax[k]*.7+L.soul.ax[k]*.3;});
   const ids=Object.keys(QK),q=[];while(q.length<2){const i=ids[Math.floor(r()*ids.length)];if(!q.includes(i))q.push(i);}
-  return{ax,q,j:[],w:0,l:0,ws:0,ls:0,act:{},food:{},fr:{},fear:{},grudge:{},defy:0,hung:-99,fav:null,ff:null,unread:0,tip:0};
+  return{ax,q,j:[],w:0,l:0,ws:0,ls:0,act:{},food:{},fr:{},fear:{},grudge:{},defy:0,hung:-99,fav:null,ff:null,unread:0,tip:0,mood:{key:'curious',until:0,reason:'เพิ่งเริ่มออกเดินทาง'}};
 }
 function soulShift(d){const c=S.c;if(!c||!c.soul)return;Object.keys(d).forEach(k=>{c.soul.ax[k]=Math.max(-100,Math.min(100,c.soul.ax[k]+d[k]));});}
 function soulGroup(c){const A=c.soul.ax;let best='bold',m=-1;['bold','kind','play'].forEach(k=>{const a=Math.abs(A[k])+Math.random()*6;if(a>m){m=a;best=k;}});
@@ -1482,7 +1573,7 @@ function soulReact(c,key){const t=REACT[key];return t?t[soulGroup(c)]:'';}
 function soulArch(c){const A=c.soul.ax;return ARCH[(A.bold>=0?'+':'-')+(A.kind>=0?'+':'-')+(A.play>=0?'+':'-')];}
 function soulMem(k,t,w,ic,rx){
   const c=S.c;if(!c||!c.soul)return;const so=c.soul;
-  so.j.unshift({d:S.day,k,ic:ic||'📝',t,w:w||1,r:rx?soulReact(c,rx):''});so.unread=(so.unread||0)+1;
+  so.j.unshift({d:S.day,k,ic:ic||'📝',t,w:w||1,r:rx?soulReact(c,rx):''});so.unread=(so.unread||0)+1;ctMoodMemory(k);
   if(so.j.length>70){let idx=so.j.length-1,mw=9;for(let i=so.j.length-1;i>=20;i--){if(so.j[i].w<mw){mw=so.j[i].w;idx=i;}}so.j.splice(idx,1);}
   if((w||1)>=3)setSay('📔 จดไว้แล้ว!',1800);
 }
@@ -1513,7 +1604,7 @@ const optHelp=o=>(o.n==='f'||(o.b||0)>=3)?1:((o.b||0)<0?-1:0);
 function soulPick(L,c){
   const A=c.soul?c.soul.ax:{bold:0,kind:0,play:0},own=L.d?(L.d[c.trait]??L.d._):0;let best=0,bs=-1e9;
   L.o.forEach((o,i)=>{const lean=optLean(o),h=optHelp(o),greed=(o.m||0)>=150?1:0,game=o.c==='?'?1:0;
-    const sc=A.bold/100*lean*2+A.kind/100*h*1.6+(A.kind<0?-A.kind/100*greed*1.2:0)+A.play/100*game*1.2+(own===i?.6:0)+Math.random()*.5;
+    const sc=A.bold/100*lean*2+A.kind/100*h*1.6+(A.kind<0?-A.kind/100*greed*1.2:0)+A.play/100*game*1.2+(own===i?.6:0)+ctMoodChoiceScore(c,o)+Math.random()*.5;
     if(sc>bs){bs=sc;best=i;}});
   return best;
 }
@@ -1590,7 +1681,7 @@ function soulFightMul(c,b){
   if(so.fear[name]>=2){m*=.85;n='😨 '+c.name+'ยังกลัว '+name+' ตัวสั่นตีไม่เต็มแรง';}
   if(so.grudge[name]){m*=1.12;n='🔥 '+c.name+'แค้นฝังใจ '+name+'!';}
   if(so.ws>=3){m*=1.08;n=n||'🔥 กำลังมั่นใจ!';}
-  if(so.ls>=2){m*=.93;n=n||'😞 ยังท้ออยู่';}
+  if(so.ls>=2){m*=.93;n=n||'😞 ยังท้ออยู่';}if(so.mood&&so.mood.key==='confident')m*=1.04;if(so.mood&&so.mood.key==='cautious')m*=.96;
   if(!b._sn){b._sn=1;if(n)b.L.unshift(n);}
   return m;
 }
@@ -1649,7 +1740,7 @@ function soulRecall(c){
   if(a.length)setSay(pk(a),3200);
 }
 function soulDay(c){
-  const so=c.soul;if(!so||Math.random()>.3)return;const pool=so.j.filter(e=>e.w>=2).slice(0,12);if(!pool.length)return;
+  const so=c.soul;if(!so)return;ctMoodTick(c);if(Math.random()>.3)return;const pool=so.j.filter(e=>e.w>=2).slice(0,12);if(!pool.length)return;
   const e=pk(pool);let ef='';
   if(['fear','lose','slump','grudge'].includes(e.k)){c.en=cl(c.en-4);ef=' (นอนไม่หลับ พลัง -4)';}
   else if(['friend','win','streak','boss','revenge','trip'].includes(e.k)){c.bond=cl(c.bond+2);ef=' (ตื่นมาอารมณ์ดี สนิท +2)';}
@@ -1679,7 +1770,7 @@ function openSoul(){
   const fe=Object.keys(so.fear).filter(n=>so.fear[n]>=2),gr=Object.keys(so.grudge);
   const past=(S.past||[]).map(p=>`<div class="log" style="text-align:left;margin-top:4px">${p.ic} <b>${p.n}</b> รุ่น ${p.g} · ${p.ti} · 🏆${p.w}/💔${p.l} · เพื่อน ${p.fr}<br><small>${p.q.join(' ')}${p.best?' · ⭐ '+p.best:''}</small></div>`).join('');
   xOv(`<div style="display:flex;gap:8px;align-items:center;text-align:left"><div class="sv" style="width:64px;flex:none">${svg(c)}</div><div><b style="font-size:15px">📔 สมุดบันทึกของ ${c.name}</b><div class="log">${a[0]} <b>${a[1]}</b> · ร่าง ${c.stage} · รุ่น ${S.gen}</div></div></div>
-  <div class="card" style="padding:8px"><b style="font-size:12px">🧭 บุคลิกตอนนี้ (เปลี่ยนไปตามเรื่องราว)</b>${axMeter('bold')}${axMeter('kind')}${axMeter('play')}
+  <div class="card" style="padding:8px"><b style="font-size:12px">🧭 บุคลิกตอนนี้ (เปลี่ยนไปตามเรื่องราว)</b><div class="log" style="margin:4px 0">อารมณ์ปัจจุบัน: <b>${ctMoodText(c)}</b></div>${axMeter('bold')}${axMeter('kind')}${axMeter('play')}
   <div style="margin-top:6px;text-align:left">${so.q.map(q=>`<div class="log">${QK[q][0]} <b>${QK[q][1]}</b> · ${QK[q][2]}</div>`).join('')}</div></div>
   <div class="card log" style="text-align:left;padding:8px;line-height:1.6">📈 เพดานสเตตัสตระกูล 💪${capOf('str')} ⚡${capOf('spd')} 🧠${capOf('int')}${c.nocap?' (รุ่นนี้ยังไม่จำกัด)':c.stage>=4?' (ร่าง 4 ทะลุเพดาน ×1.5)':''}<br>🏆 ชนะ ${so.w} · 💔 แพ้ ${so.l}${so.ws>=2?` · 🔥 ติด ${so.ws}`:so.ls>=2?` · 😞 แพ้ติด ${so.ls}`:''}${so.fav?`<br>💖 งานอดิเรก: ${SPOTS[so.fav].ic}${SPOTS[so.fav].n}`:''}${so.ff?`<br>🍽️ ของโปรด: ${FOODS[so.ff].ic}${FOODS[so.ff].n}`:''}${fr?`<br>💞 เพื่อน: ${fr}`:''}${fe.length?`<br>😨 กลัว: ${fe.join(', ')}`:''}${gr.length?`<br>😡 แค้น: ${gr.join(', ')}`:''}</div>
   ${star.length?`<b style="font-size:12px;text-align:left">⭐ ความทรงจำเด่น</b>${star.map(card).join('')}`:''}
