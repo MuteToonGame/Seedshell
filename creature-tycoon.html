@@ -939,6 +939,7 @@ function xGo(){
   if(S.depth%10===0){log('🕳️ '+c.name+'ลงลึกถึงชั้น '+S.depth);return xChallenge(1);}
   if(S.depth%5===0){xMilestone();return;}
   if(dxNode(s0,ctx))return;
+  if(abExp(ctx,s0))return;
   if(blExp(ctx,s0))return;
   if(sdExp(ctx,s0))return;
   if(mdExp(ctx,s0))return;
@@ -1689,6 +1690,7 @@ window.onload=()=>{buildSpots();$('petName').onclick=e=>{e.stopPropagation();ope
 <script src="boss-battle.js"></script>
 <script src="soul-deep.js"></script>
 <script src="bonds.js"></script>
+<script src="autonomy.js"></script>
 
 </body>
 </html>
