@@ -24,7 +24,7 @@ function bbRound(){
   if(cmd==='all'){b.sp-=2;pd=Math.round(pd*1.7);mE=1.3;txt+=c.name+'โจมตีเต็มกำลัง!';}
   else if(cmd==='def'){pd=Math.round(pd*.4);mE=.35;b.sp=Math.min(6,b.sp+2);if(b.ps>0)b.ps--;b.ph=Math.min(b.pm,b.ph+Math.round(b.pm*.04));txt+='🛡️ '+c.name+'ตั้งรับ';}
   else if(cmd==='item'){pd=0;xHeal();b.ps=0;txt='🎒 ใช้ของ';}
-  else if(cmd==='ally'){pd=Math.round(pd*.5);if(!b.al){const x=bbPool()[0];if(x.p)x.p.met++;b.al=x.al;b.ai=x.ic;b.an=x.an;L('🤝 '+x.an+'มาช่วยแล้ว!');}burst=Math.round(b.al*2.4+rnd(0,5));b.fc=3;txt+='🤝 '+b.an+'โจมตีพิเศษ +'+burst;}
+  else if(cmd==='ally'){pd=Math.round(pd*.5);if(!b.al){const x=bbPool()[0];if(x.p)x.p.met++;b.al=x.al;b.ai=x.ic;b.an=x.an;L('🤝 '+x.an+'มาช่วยแล้ว!');}const dq=typeof blDuo==='function'?blDuo(b):1;burst=Math.round(b.al*2.4*dq+rnd(0,5));b.fc=3;txt+=(dq>1?'🤝 ท่าคู่! ':'🤝 ')+b.an+'โจมตีพิเศษ +'+burst;}
   else if(cmd==='skill'){
     const k=bbSkill(c),lm=1+.12*(k.L-1);b.sp-=3;c.mv=(c.mv|0)+1;txt+=k.ic+' '+k.n+'!';
     if(k.sp==='owl'){pd=Math.round(pd*1.3*lm);ign=1;b.ins=1;L('🦉 ตาทิพย์เห็นช่องโหว่ — รู้ท่าบอสรอบหน้า');}
@@ -55,7 +55,7 @@ function bbRound(){
     L(evade?'💨 หลบได้ทุกการโจมตี':(pat==='sand'?`🏜️ Sand Emperor ฟัน ${hits} ครั้ง −${edT}`:'ศัตรูตอบโต้ −'+edT));
     if(pat==='sand'&&!evade){b.ps=Math.min(6,(b.ps|0)+hits);const t=Math.round((1+b.ps*.7)*(1+S.depth*.04));b.ph-=t;L('☠️ พิษ ×'+b.ps+' −'+t);}
   }
-  if(b.ph<=0){if(dxRevive(b))b.ph=Math.round(b.pm*Math.min(1,.5*dxM('lotus')));else{b.ph=0;return endFight(0);}}
+  if(b.ph<=0&&!(typeof blRescue==='function'&&blRescue(b))){if(dxRevive(b))b.ph=Math.round(b.pm*Math.min(1,.5*dxM('lotus')));else{b.ph=0;return endFight(0);}}
   // ---- สัญญาณรอบหน้า (ปัญญาสูง = อ่านออกบ่อย)
   const nx=n+1,T=[];
   if(pat==='forest'){if(nx%3===0)T.push('open');if(nx%4===0)T.push('slam');}

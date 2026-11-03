@@ -939,6 +939,8 @@ function xGo(){
   if(S.depth%10===0){log('🕳️ '+c.name+'ลงลึกถึงชั้น '+S.depth);return xChallenge(1);}
   if(S.depth%5===0){xMilestone();return;}
   if(dxNode(s0,ctx))return;
+  if(blExp(ctx,s0))return;
+  if(sdExp(ctx,s0))return;
   if(mdExp(ctx,s0))return;
   if(sqExp(ctx,s0))return;
   if(cqExp(ctx,s0))return;
@@ -1655,7 +1657,7 @@ function copyStory(){
 function openSoul(){
   const c=S.c;if(!c||!c.soul||S.b||S.ev||XQ||S.over||S.evo)return;
   const so=c.soul,a=soulArch(c);so.unread=0;
-  const card=e=>`<div class="card" style="text-align:left;padding:8px;border-left:5px solid ${e.w>=4?'var(--ac)':e.w>=3?'var(--blue)':'var(--bd)'}"><b style="font-size:12px">${e.ic} ${e.t}</b>${e.r?`<div class="log" style="font-style:italic">“${e.r}”</div>`:''}<small style="color:var(--mu)">วันที่ ${e.d}${e.w>=4?' · ⭐ ความทรงจำเด่น':''}</small></div>`;
+  const card=e=>`<div class="card" style="text-align:left;padding:8px;border-left:5px solid ${e.w>=4?'var(--ac)':e.w>=3?'var(--blue)':'var(--bd)'}"><b style="font-size:12px">${e.ic} ${e.t}</b>${e.r?`<div class="log" style="font-style:italic">“${e.r}”</div>`:''}<small style="color:var(--mu)">วันที่ ${e.d}${sdBadge(e)}</small></div>`;
   const star=so.j.filter(e=>e.w>=4).slice(0,3),rest=so.j.filter(e=>!star.includes(e)).slice(0,18);
   const fr=Object.entries(so.fr).map(([n,f])=>`${f.ic}${n}${f.real?'💚':''}×${f.n}`).join(' · ');
   const fe=Object.keys(so.fear).filter(n=>so.fear[n]>=2),gr=Object.keys(so.grudge);
@@ -1663,7 +1665,7 @@ function openSoul(){
   xOv(`<div style="display:flex;gap:8px;align-items:center;text-align:left"><div class="sv" style="width:64px;flex:none">${svg(c)}</div><div><b style="font-size:15px">📔 สมุดบันทึกของ ${c.name}</b><div class="log">${a[0]} <b>${a[1]}</b> · ร่าง ${c.stage} · รุ่น ${S.gen}</div></div></div>
   <div class="card" style="padding:8px"><b style="font-size:12px">🧭 บุคลิกตอนนี้ (เปลี่ยนไปตามเรื่องราว)</b><div class="log" style="margin:4px 0">อารมณ์ปัจจุบัน: <b>${ctMoodText(c)}</b></div>${axMeter('bold')}${axMeter('kind')}${axMeter('play')}
   <div style="margin-top:6px;text-align:left">${so.q.map(q=>`<div class="log">${QK[q][0]} <b>${QK[q][1]}</b> · ${QK[q][2]}</div>`).join('')}</div></div>
-  <div class="card log" style="text-align:left;padding:8px;line-height:1.6">📈 เพดานสเตตัสตระกูล 💪${capOf('str')} ⚡${capOf('spd')} 🧠${capOf('int')}${c.nocap?' (รุ่นนี้ยังไม่จำกัด)':c.stage>=4?' (ร่าง 4 ทะลุเพดาน ×1.5)':''}<br>🏆 ชนะ ${so.w} · 💔 แพ้ ${so.l}${so.ws>=2?` · 🔥 ติด ${so.ws}`:so.ls>=2?` · 😞 แพ้ติด ${so.ls}`:''}${so.fav?`<br>💖 งานอดิเรก: ${SPOTS[so.fav].ic}${SPOTS[so.fav].n}`:''}${so.ff?`<br>🍽️ ของโปรด: ${FOODS[so.ff].ic}${FOODS[so.ff].n}`:''}${fr?`<br>💞 เพื่อน: ${fr}`:''}${fe.length?`<br>😨 กลัว: ${fe.join(', ')}`:''}${gr.length?`<br>😡 แค้น: ${gr.join(', ')}`:''}</div>
+  ${sdPanel()}${blPanel()}<div class="card log" style="text-align:left;padding:8px;line-height:1.6">📈 เพดานสเตตัสตระกูล 💪${capOf('str')} ⚡${capOf('spd')} 🧠${capOf('int')}${c.nocap?' (รุ่นนี้ยังไม่จำกัด)':c.stage>=4?' (ร่าง 4 ทะลุเพดาน ×1.5)':''}<br>🏆 ชนะ ${so.w} · 💔 แพ้ ${so.l}${so.ws>=2?` · 🔥 ติด ${so.ws}`:so.ls>=2?` · 😞 แพ้ติด ${so.ls}`:''}${so.fav?`<br>💖 งานอดิเรก: ${SPOTS[so.fav].ic}${SPOTS[so.fav].n}`:''}${so.ff?`<br>🍽️ ของโปรด: ${FOODS[so.ff].ic}${FOODS[so.ff].n}`:''}${fr?`<br>💞 เพื่อน: ${fr}`:''}${fe.length?`<br>😨 กลัว: ${fe.join(', ')}`:''}${gr.length?`<br>😡 แค้น: ${gr.join(', ')}`:''}</div>
   ${star.length?`<b style="font-size:12px;text-align:left">⭐ ความทรงจำเด่น</b>${star.map(card).join('')}`:''}
   <b style="font-size:12px;text-align:left">📖 บันทึกล่าสุด</b>${rest.map(card).join('')||'<div class="log">ยังไม่มีเรื่องราว… ลองพาออกไปผจญภัยดู</div>'}
   ${past?`<details style="text-align:left"><summary style="font-size:12px;cursor:pointer">🕰️ ชาติก่อนๆ (${S.past.length})</summary>${past}</details>`:''}
@@ -1685,6 +1687,8 @@ window.onload=()=>{buildSpots();$('petName').onclick=e=>{e.stopPropagation();ope
 <script src="story-quest.js"></script>
 <script src="exp-mods.js"></script>
 <script src="boss-battle.js"></script>
+<script src="soul-deep.js"></script>
+<script src="bonds.js"></script>
 
 </body>
 </html>
