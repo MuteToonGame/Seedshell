@@ -394,7 +394,7 @@ function openDiscovery(){
   const labels={rescue:'ช่วยเหลือผู้อื่น',relic:'พบวัตถุโบราณ',brave:'เผชิญหน้าความท้าทาย',bond:'สร้างสายสัมพันธ์',boss:'พิชิตบอส',secret:'ความลับ'};
   const stats=Object.entries(labels).map(([k,v])=>`${v}: ${counts[k]||0}`).join(' · ');
   const mem=(D.memories||[]).slice(0,12).map(m=>`<div class="card" style="text-align:left;padding:8px"><b>${m.title}</b><div class="log">${m.detail||''}</div><small>รุ่น ${m.gen||S.gen} · วันที่ ${m.day}</small></div>`).join('');
-  xOv(`<b>🔎 สมุดค้นพบและความทรงจำ</b><div class="discovery">${stats}</div>${cqSummary()}<div class="discovery">🧬 เบาะแสวิวัฒนาการลับ: ${discoveryProfile()||'ยังไม่พบเส้นทางเฉพาะ'}<br>สะสมเรื่องราวต่างชนิดกัน เพื่อเปิดรูปแบบวิวัฒนาการที่ไม่เหมือนใคร</div>${mem||'<div class="log">ยังไม่มีบันทึก ลองออกสำรวจและเลือกเส้นทางที่แตกต่างกัน</div>'}<div class="g"><button class="btn" onclick="openExp()">🧭 กลับไปสำรวจ</button><button class="btn" onclick="closeX()">ปิด</button></div>`);
+  xOv(`<b>🔎 สมุดค้นพบและความทรงจำ</b><div class="discovery">${stats}</div>${sqSummary()}${cqSummary()}<div class="discovery">🧬 เบาะแสวิวัฒนาการลับ: ${discoveryProfile()||'ยังไม่พบเส้นทางเฉพาะ'}<br>สะสมเรื่องราวต่างชนิดกัน เพื่อเปิดรูปแบบวิวัฒนาการที่ไม่เหมือนใคร</div>${mem||'<div class="log">ยังไม่มีบันทึก ลองออกสำรวจและเลือกเส้นทางที่แตกต่างกัน</div>'}<div class="g"><button class="btn" onclick="openExp()">🧭 กลับไปสำรวจ</button><button class="btn" onclick="closeX()">ปิด</button></div>`);
 }
 function evolve(){
   const c=S.c; const fxFrom=svg(c);
@@ -931,8 +931,54 @@ function ctStoryResolve(q,pick){
   saveGame();
 }
 
+function xGo(){
+  const c=S.c,why=xWhy();if(why)return xMsg('⛔ '+why);
+  if(!S.depth){S.dBi=PX.bi;S.dOf=c.seed;dxRun();c.act=null;c.at=false;c.auto=false;S.food=null;hideFeed();}PX.bi=S.dBi;const B=BIO[PX.bi];
+  c.en=cl(c.en-xCost(),0,100);c.hun=cl(c.hun-1.5);S.depth++;S.bestD=Math.max(S.bestD||0,S.depth);qInc('dive');
+  const s0=xSnap(),ctx=xctx(),r=Math.random;let t;dxWx(c);
+  if(S.depth%10===0){log('🕳️ '+c.name+'ลงลึกถึงชั้น '+S.depth);return xChallenge(1);}
+  if(S.depth%5===0){xMilestone();return;}
+  if(dxNode(s0,ctx))return;
+  if(mdExp(ctx,s0))return;
+  if(sqExp(ctx,s0))return;
+  if(cqExp(ctx,s0))return;
+  if(ctStoryTry(ctx,s0))return;
+  if(r()<Math.min(.9,.45+S.pity*.15)){
+    S.pity=0;const x=r();
+    if(x<.3+Math.min(.1,S.depth*.005)){xChallenge(0);return;}
+    if(x<.68){ // เหตุการณ์ตามนิสัย (ผลต่างกันตามนิสัย)
+      const e=S.npcs.length&&r()<.3?6:pk([0,1,2,4,5]);let o,tt;
+      if(e===6){const p=pk(S.npcs);p.met++;ctx.p=p.ic+p.n;tt='ทริปเจอ{p}';
+        if(p.rel==='r'){xFight({ic:p.ic,name:p.n,rival:1});return;}
+        o={x:'{p}เพื่อนเก่าของ{n}โผล่มาช่วยชี้ทาง แถมแบ่งของให้!',m:120,b:3,it:Math.random()<.35?1:0};t=xfx(o,ctx,XI[6],tt);}
+      else{dxSee('e:'+XE[e].tt);o=XE[e].o[c.trait]||XE[e].o._;t=xfx(o,ctx,XI[e],XE[e].tt);}
+      gainXp(6);
+    }else{ // เหตุการณ์ทางแยก ให้เราเลือก
+      const q=dxPickL();XQ={L:q,ctx,s0};
+      xAsk();return;
+    }
+  }else{ // ไม่เจอเหตุการณ์ → ได้เงินกับ XP เฉยๆ
+    S.pity++;const m=Math.round((18+c.stage*8)*B.lm*(.8+r()*.4)*(1+S.depth*.06));S.money+=m;gainXp(8+c.stage*2);
+    t='🚶 '+tmpl(pk(PL),ctx);if(r()<Math.min(.35,.08+S.depth*.01))t+=giveItem();if(r()<.14)t+=dxCol('w');
+  }
+  const ch=xChips(s0);xMsg(`${xOut(t,ch)}`);
+  xAfter();
+}
+function xPick(k){const q=XQ;if(!q)return;XQ=null;xResolve(q,k);}
+function xResolve(q,ch){
+  if(q.fk)return dxDoor(q,ch);if(q.shop){xMsg(xOut('ออกจากร้านแล้ว','','🛒'));return xAfter();}
+  const c=S.c,L=q.L,own=soulPick(L,c);let pick=ch,pre='';
+  if(ch==null){pick=own;pre='⏳ '+c.name+'ตัดสินใจเอง: ';}
+  else if(own!==ch&&Math.random()>soulObey(c,L.o[ch],cl(.35+c.bond*.006-(c.trait==='ซน'?.15:0),.2,.97))){pick=own;pre=soulDefy(c,L.o[ch]);}
+  soulDecision(c,L,ch,pick);ctStoryResolve(q,pick);if(q.cq)return cqPick(q,pick,pre);if(L.o[pick].f)return xFight(q.f);
+  const o=Object.assign({},L.o[pick]);o.x=pre+o.x;
+  const t=xfx(o,q.ctx,'✉️',L.ti,1);gainXp(10);const ch2=xChips(q.s0);
+  xMsg(`${xOut(t,ch2)}`);
+  xAfter();
+}
+
 const EI=[{id:'rice',ic:'🍙',n:'ข้าวปั้น',e:25,p:90},{id:'juice',ic:'🧃',n:'น้ำเกลือแร่',e:50,p:170},{id:'meat',ic:'🍖',n:'เนื้อย่าง',e:100,p:320}],BAGMAX=6;
-const xCost=()=>8+Math.floor(S.depth/5)+(soulQ('homebody')?1:0)-(soulQ('wanderer')?1:0)-(dxHas('pearl')?Math.round(dxM('pearl')):0),bagN=()=>EI.reduce((a,i)=>a+(S.bag[i.id]||0),0);
+const xCost=()=>8+Math.floor(S.depth/5)+(soulQ('homebody')?1:0)-(soulQ('wanderer')?1:0)-(dxHas('pearl')?Math.round(dxM('pearl')):0)+mdEc(),bagN=()=>EI.reduce((a,i)=>a+(S.bag[i.id]||0),0);
 function bagAdd(id){if(bagN()>=BAGMAX)return 0;S.bag[id]=(S.bag[id]||0)+1;return 1;}
 function xBagUI(){
   const e=$('xBag'),c=S.c;if(!e||!c)return;const n=bagN(),b=(f)=>`<div class="g" style="grid-template-columns:repeat(3,1fr)">${EI.map(f).join('')}</div>`;
@@ -964,9 +1010,9 @@ function openExp(){
   if(S.depth)PX.bi=S.dBi;else if(c.stage<BIO[PX.bi].st)PX.bi=0;
   const R=62,C=(2*Math.PI*R).toFixed(1);
   xOv(`<b>🧭 Expedition</b><div class="log">👆⏱️ = ⬇️ · 🔋0 = 🏠 · 🎒 📚 📖</div>
-  <div class="g" style="grid-template-columns:repeat(3,1fr)">${BIO.map((b,k)=>`<button class="btn ${PX.bi===k?'on':''}" style="padding:8px 2px" onclick="PX.bi=${k};openExp()" ${c.stage<b.st||(S.depth&&S.dBi!==k)?'disabled':''}>${b.ic} ${b.n}<br><small>${c.stage<b.st?'🔒'+b.st:'💀'.repeat(Math.ceil(b.dg*2))}</small></button>`).join('')}</div>
+  <div class="g" style="grid-template-columns:repeat(3,1fr)">${BIO.map((b,k)=>`<button class="btn ${PX.bi===k?'on':''}" style="padding:8px 2px" onclick="PX.bi=${k};openExp()" ${c.stage<b.st||(S.depth&&S.dBi!==k)?'disabled':''}>${b.ic}${mdIc(k)} ${b.n}<br><small>${c.stage<b.st?'🔒'+b.st:'💀'.repeat(Math.ceil(b.dg*2))}</small></button>`).join('')}</div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center">
+  ${mdCard()}<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center">
     <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
       <div class="sv" style="width:100%;max-width:120px;margin:0 auto">${svg(c)}</div>
       <div id="xSt" style="text-align:center;font-size:11px;line-height:1.45"></div>
@@ -1015,7 +1061,7 @@ function xChallenge(boss){
 }
 function xFight(f){
   const c=S.c,D=S.depth,k=f.boss?2.2:1;
-  const hp=Math.round((30+D*6+c.stage*8)*k*(f.rival?1.15:1)),E=Math.round((6+D*.8+c.stage*2)*(f.boss?1.5:1)),ph=60+eff(c,'str')*2;
+  const hp=Math.round((30+D*6+c.stage*8)*k*(f.rival?1.15:1)*mdFs()),E=Math.round((6+D*.8+c.stage*2)*(f.boss?1.5:1)*mdFs()),ph=60+eff(c,'str')*2;
   let al=0,ai='',an='',nw='';
   const pool=[...S.npcs.filter(p=>p.rel==='f').map(p=>({p,ic:p.ic,an:p.ic+p.n,al:c.stage*6+D*.5+p.met*2})),...S.guests.map(g=>({g,ic:'🐾',an:'🐾'+g.n+' (เพื่อนจริง)',al:(g.a[0]+g.a[1]*.7+g.a[2]*.5)*.6+D*.3}))];
   if(pool.length&&Math.random()<.35+c.bond*.003){const x=pk(pool);if(x.p)x.p.met++;if(x.g)x.g.helps=(x.g.helps||0)+1;al=x.al;ai=x.ic;an=x.an;}
@@ -1060,7 +1106,7 @@ function dxSee(k){const D=dx();if(D.seen[k]){D.seen[k]++;return 0;}D.seen[k]=1;c
 const dxVar=t=>t==='sec'?[PX.bi*2,PX.bi*2+1]:[0,1,2];
 const dxUn=t=>!!DXT[t]&&t!=='ev'&&t!=='fight'&&dxVar(t).some(i=>!dx().seen['r:'+t+i]);
 const dxLM=()=>{const R=dx().run,w=DXW.find(x=>x.id===R.wx),o=DXO.find(x=>x.id===R.om);return((w&&w.l)||1)*((o&&o.l)||1)*(dxHas('scarab')?1+.25*dxM('scarab'):1);};
-function dxRun(){const om=Math.random()<.65?pk(DXO):null;dx().run={om:om?om.id:'',wx:'',wl:0,cl:0};if(om)dxPre+=`${om.ic} ลางประจำทริป: ${om.n}<br>`;}
+function dxRun(){const om=mdPick();dx().run={om:om?om.id:'',wx:'',wl:0,cl:0};if(om)dxPre+=`${om.ic} เงื่อนไขทริป: ${om.n}${om.d?' · '+om.d:''}<br>`;}
 function dxWx(c){
   const D=dx(),R=D.run;R.wl=R.wl|0;if(dxHas('rootd'))c.en=cl(c.en+Math.round(3*dxM('rootd')));if(dxHas('bellx'))c.bond=cl(c.bond+Math.round(dxM('bellx')));if(R.wl>0)R.wl--;
   if(R.wl<=0&&Math.random()<.4){const p=DXW.filter(w=>w.bi.includes(PX.bi)),u=p.filter(x=>!D.seen['w:'+x.id]),w=pk(u.length&&Math.random()<.6?u:p);
@@ -1093,7 +1139,7 @@ function dxNode(s0,ctx){
   return 0;
 }
 function dxFork(s0,ctx){
-  const c=S.c,R=dx().run,w=DXW.find(x=>x.id===R.wx),fog=w&&w.f&&!dxHas('mirage'),ds=[];
+  const c=S.c,R=dx().run,w=DXW.find(x=>x.id===R.wx),fog=((w&&w.f)||mdF())&&!dxHas('mirage'),ds=[];
   while(ds.length<3)ds.push(wpick(dxTypeW().filter(x=>!ds.includes(x[0]))));
   const un=Object.keys(DXT).filter(dxUn);if(un.length&&!ds.some(dxUn))ds[2]=pk(un);
   const PF={'ตะกละ':['shop','camp'],'ซน':['sec','ev','fight'],'ขยัน':['trs','camp'],'ขี้หึง':['fight','trs']},pf=PF[c.trait]||[],def=Math.max(0,ds.findIndex(t=>pf.includes(t)));
@@ -1636,6 +1682,9 @@ window.onload=()=>{buildSpots();$('petName').onclick=e=>{e.stopPropagation();ope
 </script>
 <script src="cq-events.js"></script>
 <script src="goals.js"></script>
+<script src="story-quest.js"></script>
+<script src="exp-mods.js"></script>
+<script src="boss-battle.js"></script>
 
 </body>
 </html>
