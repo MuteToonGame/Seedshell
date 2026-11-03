@@ -981,7 +981,7 @@ function xResolve(q,ch){
 }
 
 const EI=[{id:'rice',ic:'🍙',n:'ข้าวปั้น',e:25,p:90},{id:'juice',ic:'🧃',n:'น้ำเกลือแร่',e:50,p:170},{id:'meat',ic:'🍖',n:'เนื้อย่าง',e:100,p:320}],BAGMAX=6;
-const xCost=()=>8+Math.floor(S.depth/5)+(soulQ('homebody')?1:0)-(soulQ('wanderer')?1:0)-(dxHas('pearl')?Math.round(dxM('pearl')):0)+mdEc(),bagN=()=>EI.reduce((a,i)=>a+(S.bag[i.id]||0),0);
+const xCost=()=>8+Math.floor(S.depth/5)+(soulQ('homebody')?1:0)-(soulQ('wanderer')?1:0)-(dxHas('pearl')?Math.round(dxM('pearl')):0)+mdEc()-emXc(),bagN=()=>EI.reduce((a,i)=>a+(S.bag[i.id]||0),0);
 function bagAdd(id){if(bagN()>=BAGMAX)return 0;S.bag[id]=(S.bag[id]||0)+1;return 1;}
 function xBagUI(){
   const e=$('xBag'),c=S.c;if(!e||!c)return;const n=bagN(),b=(f)=>`<div class="g" style="grid-template-columns:repeat(3,1fr)">${EI.map(f).join('')}</div>`;
@@ -1666,7 +1666,7 @@ function openSoul(){
   xOv(`<div style="display:flex;gap:8px;align-items:center;text-align:left"><div class="sv" style="width:64px;flex:none">${svg(c)}</div><div><b style="font-size:15px">📔 สมุดบันทึกของ ${c.name}</b><div class="log">${a[0]} <b>${a[1]}</b> · ร่าง ${c.stage} · รุ่น ${S.gen}</div></div></div>
   <div class="card" style="padding:8px"><b style="font-size:12px">🧭 บุคลิกตอนนี้ (เปลี่ยนไปตามเรื่องราว)</b><div class="log" style="margin:4px 0">อารมณ์ปัจจุบัน: <b>${ctMoodText(c)}</b></div>${axMeter('bold')}${axMeter('kind')}${axMeter('play')}
   <div style="margin-top:6px;text-align:left">${so.q.map(q=>`<div class="log">${QK[q][0]} <b>${QK[q][1]}</b> · ${QK[q][2]}</div>`).join('')}</div></div>
-  ${sdPanel()}${blPanel()}<div class="card log" style="text-align:left;padding:8px;line-height:1.6">📈 เพดานสเตตัสตระกูล 💪${capOf('str')} ⚡${capOf('spd')} 🧠${capOf('int')}${c.nocap?' (รุ่นนี้ยังไม่จำกัด)':c.stage>=4?' (ร่าง 4 ทะลุเพดาน ×1.5)':''}<br>🏆 ชนะ ${so.w} · 💔 แพ้ ${so.l}${so.ws>=2?` · 🔥 ติด ${so.ws}`:so.ls>=2?` · 😞 แพ้ติด ${so.ls}`:''}${so.fav?`<br>💖 งานอดิเรก: ${SPOTS[so.fav].ic}${SPOTS[so.fav].n}`:''}${so.ff?`<br>🍽️ ของโปรด: ${FOODS[so.ff].ic}${FOODS[so.ff].n}`:''}${fr?`<br>💞 เพื่อน: ${fr}`:''}${fe.length?`<br>😨 กลัว: ${fe.join(', ')}`:''}${gr.length?`<br>😡 แค้น: ${gr.join(', ')}`:''}</div>
+  ${emPanel()}${sdPanel()}${blPanel()}<div class="card log" style="text-align:left;padding:8px;line-height:1.6">📈 เพดานสเตตัสตระกูล 💪${capOf('str')} ⚡${capOf('spd')} 🧠${capOf('int')}${c.nocap?' (รุ่นนี้ยังไม่จำกัด)':c.stage>=4?' (ร่าง 4 ทะลุเพดาน ×1.5)':''}<br>🏆 ชนะ ${so.w} · 💔 แพ้ ${so.l}${so.ws>=2?` · 🔥 ติด ${so.ws}`:so.ls>=2?` · 😞 แพ้ติด ${so.ls}`:''}${so.fav?`<br>💖 งานอดิเรก: ${SPOTS[so.fav].ic}${SPOTS[so.fav].n}`:''}${so.ff?`<br>🍽️ ของโปรด: ${FOODS[so.ff].ic}${FOODS[so.ff].n}`:''}${fr?`<br>💞 เพื่อน: ${fr}`:''}${fe.length?`<br>😨 กลัว: ${fe.join(', ')}`:''}${gr.length?`<br>😡 แค้น: ${gr.join(', ')}`:''}</div>
   ${star.length?`<b style="font-size:12px;text-align:left">⭐ ความทรงจำเด่น</b>${star.map(card).join('')}`:''}
   <b style="font-size:12px;text-align:left">📖 บันทึกล่าสุด</b>${rest.map(card).join('')||'<div class="log">ยังไม่มีเรื่องราว… ลองพาออกไปผจญภัยดู</div>'}
   ${past?`<details style="text-align:left"><summary style="font-size:12px;cursor:pointer">🕰️ ชาติก่อนๆ (${S.past.length})</summary>${past}</details>`:''}
@@ -1691,6 +1691,7 @@ window.onload=()=>{buildSpots();$('petName').onclick=e=>{e.stopPropagation();ope
 <script src="soul-deep.js"></script>
 <script src="bonds.js"></script>
 <script src="autonomy.js"></script>
+<script src="emotion.js"></script>
 
 </body>
 </html>
