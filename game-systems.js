@@ -1265,3 +1265,442 @@ function arInit(){
   };
 }
 }
+
+
+// ################ needs-home ################
+// ===== needs-home · ความต้องการเฉพาะตัว + เพื่อนมาวิ่งเล่นในบ้าน + ไอคอนผู้ใช้อุปกรณ์ · โหลดหลังสุด =====
+// 5 ความต้องการ (0-100 ค่อยๆ สะสม): 🧭สำรวจ 🧸เล่นด้วย 😴พักผ่อน 💪ท้าทาย 🫂อยู่กับเพื่อน — สัตว์แต่ละตัวโตไม่เท่ากัน (คิดจากบุคลิก/ความชอบ/นิสัย) ตัวที่แรงสุด = "ความต้องการหลัก"
+// ผู้เล่นไม่ได้เห็นแค่ตัวเลข: สัตว์ "แสดงออก" เอง → ยืนมองประตู · คาบของเล่นมาให้ · เดินไปนอนเอง · ไปยืนข้างอุปกรณ์ · นั่งรอเพื่อน · ทำถูกใจแล้วดีใจ (ใจฟู ฝึกได้ดีขึ้น 1 วัน + บางครั้งเก็บของมาฝาก)
+// ไม่ทำตามก็ไม่โดนลงโทษแรง: แค่อารมณ์ตก และถ้าค้างนานมากจะ "งอน" (ดื้อขึ้นเล็กน้อยจนกว่าจะได้ทำอะไรสักอย่างที่ชอบ)
+// เพื่อนที่แวะมา: เดินเข้าประตู → ใช้อุปกรณ์ (ไอคอนติดอยู่ที่อุปกรณ์) → อยู่วิ่งเล่นกับสัตว์เราสักพัก → เดินออก · ไอคอนติดอุปกรณ์ใช้กับสัตว์เราด้วย (ตัวไหนใช้อยู่ขึ้นตัวนั้น)
+{
+const NDK=['ex','pl','rs','ch','co'];
+const NDD={
+  ex:{ic:'🧭',n:'อยากสำรวจ',cue:'ยืนมองประตู',fix:'พาออกผจญภัย',learn:'ชอบออกไปสำรวจ อยู่บ้านนานๆ จะอยู่ไม่สุข',joy:['🧭 สนุกมาก! ไปอีกนะ','🌟 ได้ออกไปข้างนอกแล้ว!']},
+  pl:{ic:'🧸',n:'อยากเล่นด้วย',cue:'คาบของเล่นมาให้',fix:'แตะของเล่น/ตัวสัตว์เล่นด้วย',learn:'ชอบให้เจ้าของเล่นด้วย ขาดความสนใจไม่ได้',joy:['🎾 เล่นกันอีกนะ!','💖 ชอบที่สุดเลย']},
+  rs:{ic:'😴',n:'อยากพักผ่อน',cue:'เดินไปนอนเอง',fix:'ปล่อยให้พัก (อย่าเพิ่งสั่งฝึก)',learn:'ชอบนอนและพักผ่อน ฝึกหนักๆ ติดกันไม่ไหว',joy:['😌 สบายตัวจัง~','💤 หลับสนิทเลย']},
+  ch:{ic:'💪',n:'อยากท้าทาย',cue:'ไปยืนข้างอุปกรณ์',fix:'สั่งฝึกที่อุปกรณ์ หรือไปสู้ศึก',learn:'ชอบฝึกและต้องการความท้าทาย อยู่เฉยๆ ไม่ได้',joy:['🔥 ได้ฝึกแล้ว มันส์มาก!','💪 อีกรอบได้เลย!']},
+  co:{ic:'🫂',n:'อยากอยู่กับเพื่อน',cue:'นั่งรอเพื่อนที่ประตู',fix:'ให้เพื่อนมาเยี่ยม',learn:'ชอบอยู่ใกล้เพื่อน ไม่ชอบอยู่คนเดียวนานๆ',joy:['🫂 อบอุ่นจัง','😊 มีเพื่อนดีที่สุด']}
+};
+const ND={v:null,toy:0};
+const ndOf=c=>{if(!c.nd)c.nd={v:{ex:20,pl:20,rs:20,ch:20,co:20},k:{},cd:0,buf:0,sulk:0,w:null,wt:0,rank:null,cue:null,away:0,exGo:0,sat:0};return c.nd;};
+const ndOn=()=>{const c=S.c;return !!(c&&c.soul&&!S.over);};
+const ndIdle=c=>!c.act&&!S.food&&!c.ab&&!away()&&!MG&&!S.ev&&!S.b&&!S.evo;
+const ndPool=()=>[...S.npcs.filter(p=>p.rel==='f').map(p=>({t:'n',n:p.n,ic:p.ic})),...S.guests.map(g=>({t:'g',id:g.id,n:g.n,ic:'🐾'}))];
+function ndWeights(c){
+  const A=abA(c),pf=pfOf(c),fr=Object.keys(bl()).length,q=k=>{try{return soulQ(k)}catch(e){return false}};
+  return{
+    ex:.5+(q('wanderer')?1:0)+Math.max(0,A.play)*.012+(pf.st.l==='explore'?.8:0)-(q('homebody')?.5:0),
+    pl:.5+Math.max(0,A.play)*.01+Math.max(0,A.kind)*.008+(c.bond<40?.3:0),
+    rs:.5+(q('sleepy')?1.1:0)+(A.play<-20?.4:0)+(q('homebody')?.5:0),
+    ch:.5+Math.max(0,A.bold)*.014+(c.trait==='ขยัน'?.9:0)+(pf.st.l==='fight'?.7:0),
+    co:.5+Math.max(0,-A.bold)*.012+Math.max(0,A.kind)*.008+Math.min(.6,fr*.15)};
+}
+function ndRank(c,n){ // จัดอันดับ: หลัก/รอง/ทั่วไป · เสมอกันใช้เมล็ดพันธุ์ตัดสิน (คงที่ต่อตัว)
+  if(!n.w||S.tick-n.wt>=25){n.w=ndWeights(c);n.wt=S.tick;const s=(c.seed||1)>>>0;n.rank=NDK.slice().sort((a,b)=>(n.w[b]-n.w[a])||(((s>>NDK.indexOf(b))&1)-((s>>NDK.indexOf(a))&1)));}
+  return n.rank;
+}
+const ndRate=(n,k)=>{const r=n.rank.indexOf(k);return r===0?1.6:r===1?1.0:.5;};
+const ndPrimary=c=>{const n=ndOf(c);return ndRank(c,n)[0];};
+
+// ---------- เอฟเฟกต์ ----------
+function ndFloat(ch,cnt){const r=$('room'),c=S.c;if(!r||!c)return;for(let i=0;i<(cnt||3);i++){const e=document.createElement('span');e.className='ndfl';e.textContent=ch;e.style.left=(c.x+(Math.random()*14-7))+'%';e.style.top=(c.y-14)+'%';e.style.animationDelay=(i*.18)+'s';r.appendChild(e);setTimeout(()=>e.remove(),1500);}}
+function ndGift(c){if(Math.random()<.35){const m=ri(12,35);S.money+=m;log('🎁 '+c.name+'เก็บของมาฝาก ขายได้ ฿'+m);}}
+function ndJoy(k,was){
+  const c=S.c,n=ndOf(c),D=NDD[k];
+  emAdd({j:8,d:-6,a:-5,l:k==='co'?-18:0});c.bond=cl(c.bond+1.5);n.buf=S.day+1;n.sulk=0;n.sat=(n.sat|0)+1;
+  setSay(pk(D.joy),2600);ndFloat('❤️',3);const p=$('pet');if(p){p.classList.remove('ndJoyA');void p.offsetWidth;p.classList.add('ndJoyA');setTimeout(()=>p.classList.remove('ndJoyA'),1300);}
+  if(!n.k[k]){n.k[k]=1;const msg=c.name+D.learn;log('💡 รู้ใจ: '+msg);soulMem('pref',msg,2,'💡',null);}
+  if(was>=80)ndGift(c);
+}
+function ndSat(k,amt){
+  if(!ndOn())return;const c=S.c,n=ndOf(c),was=n.v[k];n.v[k]=cl(was-amt,0,100);
+  if(was>=60&&(n.v[k]<=was-15||n.v[k]<50)){ndJoy(k,was);if(n.cue&&n.cue.k===k)ndEndCue(c,n);}
+}
+function ndEndCue(c,n){if(c.ab&&c.ab.nd)c.ab=null;n.cue=null;n.cd=S.tick+14;ndToy(false);}
+function ndToy(on){ND.toy=on?1:0;}
+
+// ---------- เริ่มแสดงความต้องการ ----------
+function ndCueStart(c,n,k){
+  const D=NDD[k];n.cue={k,until:S.tick+11};
+  if(k==='ex'){c.ab={k:'nex',t:11,x:6,y:64,nd:1};setSay('🚪 ยืนมองประตู… อยากออกไปข้างนอกจัง',3400);}
+  else if(k==='pl'){c.ab={k:'npl',t:11,x:ri(40,60),y:86,nd:1};ndToy(true);setSay('🧸 คาบของเล่นมาให้! เล่นด้วยกันนะ',3400);}
+  else if(k==='rs'){c.act='rest';c.at=false;c.auto=true;c.autoLeft=ri(7,12);n.cue.until=S.tick+14;setSay('😴 ง่วงแล้ว… ขอไปนอนนะ',3000);}
+  else if(k==='ch'){const L=['read','lift','run'].filter(x=>c.nocap||c[SPOTS[x].st]<capOf(SPOTS[x].st));if(!L.length){n.cue=null;return;}
+    const pf=pfOf(c),fav=c.soul.fav,sp=L.includes(fav)?fav:(L.find(x=>pfSt('act',x)>0)||pk(L)),s=SPOTS[sp];
+    n.cue.sp=sp;c.ab={k:'nch',t:11,x:s.tx+(s.tx>50?-12:12),y:s.ty,nd:1};setSay(s.ic+' อยากฝึกจัง! ลองสั่งดูสิ',3400);}
+  else{c.ab={k:'nco',t:11,x:6,y:74,nd:1};setSay('💭 ไม่รู้ว่าเพื่อนจะแวะมาไหมนะ…',3400);}
+  void D;
+}
+
+// ---------- ทุกจังหวะเกม (2.4 วิ) ----------
+function ndTick(){
+  if(!ndOn())return;const c=S.c,n=ndOf(c),rk=ndRank(c,n),pool=ndPool(),v=n.v;
+  // เติมความอยาก
+  const aw=away();
+  NDK.forEach(k=>{let r=ndRate(n,k);if(aw)r*=(k==='ex'?0:.5);if(k==='co'&&!pool.length&&v.co>=55)r=0;v[k]=cl(v[k]+r);});
+  // ผ่อนเองตามสิ่งที่กำลังทำ
+  if(aw){if(!n.away){n.away=1;n.exGo=v.ex;}v.ex=cl(v.ex-6);}
+  else if(n.away){n.away=0;if(n.exGo>=50){n.v.ex=Math.min(n.v.ex,10);ndJoy('ex',n.exGo);}}
+  if(c.act==='rest'&&c.at)ndSat('rs',5);else if(c.ab&&c.ab.k==='nap')ndSat('rs',3);
+  if(ND.v&&(ND.v.st==='hang'||ND.v.st==='use')&&Math.hypot(c.x-ND.v.x,c.y-ND.v.y)<30&&!aw){emAdd({j:.8});c.bond=cl(c.bond+.2);ndSat('co',4);}
+  // เพื่อนมาเล่นด้วยเมื่ออยู่ว่างๆ
+  if(ND.v&&ndIdle(c)&&Math.random()<(v.co>=50?.9:.35)){c.ab={k:'frp',t:ri(6,10),x:ND.v.x,y:ND.v.y,nd:0};}
+  // ค้างนาน: อารมณ์ตก/งอน (ไม่รุนแรง)
+  NDK.forEach(k=>{if(v[k]>=90&&S.tick%5===0){emAdd(k==='ex'?{d:2,x:-2}:k==='co'?{l:3,j:-1}:k==='pl'?{a:2,j:-1}:k==='rs'?{d:2,a:1}:{d:2,j:-1});}});
+  if(NDK.some(k=>v[k]>=100)&&n.sulk<S.day){n.sulk=S.day+1;setSay('😤 งอนแล้วนะ!',2600);if(S.day-(n.sl||-9)>=4){n.sl=S.day;log('😤 '+c.name+'งอน… ไม่ได้ทำสิ่งที่ต้องการมานาน (ทำอะไรที่ชอบสักอย่างจะหายงอน)');}}
+  // จบ cue
+  if(n.cue){const k=n.cue.k,ab=['ex','pl','ch','co'].includes(k);if(S.tick>=n.cue.until||(ab&&!c.ab)||away()){ndEndCue(c,n);}}
+  // เริ่ม cue ใหม่
+  if(!n.cue&&S.tick>=n.cd&&S.screen==='home'&&ndIdle(c)){
+    const k=NDK.filter(x=>v[x]>=66&&!(x==='co'&&!pool.length)).sort((a,b)=>v[b]-v[a])[0];
+    if(k&&Math.random()<.5)ndCueStart(c,n,k);
+  }
+  // เพื่อนมาเยี่ยมเมื่อเหงาหนัก
+  if(!S.vis&&v.co>=70&&pool.length&&Math.random()<.16){const w=pk(pool),k=pk(['read','lift','run']);S.vis={w,k,left:ri(7,12)};log(`${w.ic} ${w.n} สังเกตว่า ${c.name}อยากมีเพื่อน เลยแวะมาหา!`);}
+}
+
+// ---------- ผลต่อการสั่งงาน/ฝึก ----------
+function ndSay(c,k){ // ข้อความอธิบายตอนกดอุปกรณ์
+  const n=c.soul&&ndOf(c);if(!n)return '';
+  if((k==='read'||k==='lift'||k==='run')&&n.v.rs>=70)return '😴 ง่วงอยู่ ไม่ค่อยอยากฝึก';
+  if((k==='read'||k==='lift'||k==='run')&&n.v.ch>=70)return '💪 กำลังอยากท้าทาย พร้อมฝึก!';
+  if(k==='rest'&&n.v.rs>=60)return '😴 อยากพักอยู่พอดี';
+  if(n.sulk>=S.day&&n.sulk>0)return '😤 กำลังงอน';
+  return '';
+}
+
+// ---------- เพื่อนมาวิ่งเล่นในบ้าน ----------
+const NDW=()=>{const r=$('room');return r;};
+function ndSprite(w){
+  const el=document.createElement('div');el.className='ndv';
+  let inner=w.ic||'🐾';
+  if(w.t==='g'){const g=S.guests.find(x=>x.id===w.id);if(g){try{inner='<div class="ndvs">'+svg({seed:g.s,sp:g.p,stage:g.g||1,br:g.b,hun:60,en:60,bond:0,name:g.n,str:g.a&&g.a[0]||4,spd:g.a&&g.a[1]||4,int:g.a&&g.a[2]||4})+'</div>';}catch(e){inner=w.ic||'🐾';}}}
+  el.innerHTML='<div class="ndvi">'+inner+'</div><small>'+(w.n||'')+'</small>';
+  return el;
+}
+function ndSpawn(w,k){
+  const r=NDW();if(!r)return;const el=ndSprite(w),s=SPOTS[k];
+  r.appendChild(el);
+  ND.v={w,k,el,x:4,y:64,st:'enter',tx:s.tx+(s.tx>50?-16:16),ty:s.ty,t:0,wait:0};
+}
+function ndKill(){if(ND.v&&ND.v.el)ND.v.el.remove();ND.v=null;}
+function ndMoveV(v,sp){const dx=v.tx-v.x,dy=v.ty-v.y,d=Math.hypot(dx,dy);if(d<=sp){v.x=v.tx;v.y=v.ty;return true;}v.x+=dx/d*sp;v.y+=dy/d*sp;return false;}
+function ndFrame(){
+  const r=NDW();if(!r||!S.c)return;const c=S.c,vis=S.vis;
+  if(!ndOn()){if(ND.v)ndKill();return;}
+  // ซิงก์เพื่อนกับสถานะแวะมา
+  if(vis&&(!ND.v||ND.v.w!==vis.w||ND.v.st==='leave'))ndSpawnSync(vis);
+  if(!vis&&ND.v&&ND.v.st==='use'){ND.v.st='hang';ND.v.t=ri(130,200);ND.v.wait=0;ND.v.hp=0;}
+  const v=ND.v;
+  if(v){
+    let walking=true;
+    if(v.st==='enter'){if(ndMoveV(v,.9)){v.st='use';walking=false;}}
+    else if(v.st==='use'){walking=false;}
+    else if(v.st==='hang'){
+      if(--v.t<=0){v.st='leave';v.tx=3;v.ty=64;}
+      else if(v.wait>0){v.wait--;walking=false;}
+      else{if(!v.hp){v.tx=ri(14,88);v.ty=ri(60,90);v.hp=1;}
+        if(ndMoveV(v,1.15)){v.hp=0;v.wait=ri(6,16);}}
+    }
+    else if(v.st==='leave'){if(ndMoveV(v,1)){ndKill();}}
+    if(ND.v){
+      v.el.style.left=v.x+'%';v.el.style.top=v.y+'%';v.el.style.zIndex=Math.round(v.y);
+      const cls='ndv'+(walking?' walk':'')+(v.st==='use'?' use-'+v.k:'');if(v.el.className!==cls)v.el.className=cls;
+    }
+  }
+  // ไอคอนผู้ใช้อุปกรณ์ติดไว้ที่อุปกรณ์
+  const pe=c.act&&c.at&&!walking?c.act:(MG?MG.k:null);
+  let pic='🐾';try{pic=BBX[speciesOf(c)][1];}catch(e){}
+  Object.keys(SPOTS).forEach(k=>{
+    const b=$('sp-'+k);if(!b)return;let u=b.querySelector('.ndu');if(!u){u=document.createElement('span');u.className='ndu';b.appendChild(u);}
+    const a=[];if(pe===k)a.push(pic);if(ND.v&&ND.v.st==='use'&&ND.v.k===k)a.push(ND.v.w.ic||'🐾');
+    const t=a.join('');if(u.textContent!==t)u.textContent=t;u.style.display=t?'flex':'none';
+    const call=ndOf(c).cue&&ndOf(c).cue.k==='ch'&&ndOf(c).cue.sp===k;b.classList.toggle('ndcall',!!call);
+  });
+  // ประตู + ของเล่น + ไอคอนความต้องการเหนือหัว
+  let d=$('ndDoor');if(!d){d=document.createElement('button');d.id='ndDoor';d.innerHTML='🚪<small>ผจญภัย</small>';d.onclick=e=>{e.stopPropagation();ndDoorTap();};r.appendChild(d);}
+  const n=ndOf(c);d.classList.toggle('on',!!(n.cue&&n.cue.k==='ex'));
+  let t=$('ndToy');if(!t){t=document.createElement('button');t.id='ndToy';t.textContent='🧸';t.onclick=ndToyTap;r.appendChild(t);}
+  const showToy=ND.toy&&n.cue&&n.cue.k==='pl';t.style.display=showToy?'block':'none';if(showToy){t.style.left=(c.x+7)+'%';t.style.top=c.y+'%';t.style.zIndex=Math.round(c.y)+1;}
+  const p=$('pet');let bd=$('ndBadge');if(p&&!bd){bd=document.createElement('div');bd.id='ndBadge';p.appendChild(bd);}
+  if(bd){const k=n.cue?n.cue.k:null,sul=n.sulk>=S.day&&n.sulk>0,tx=sul?'😤':k?NDD[k].ic:'';if(bd.textContent!==tx)bd.textContent=tx;bd.style.display=tx?'block':'none';}
+}
+function ndSpawnSync(vis){ndKill();ndSpawn(vis.w,vis.k);}
+function ndDoorTap(){if(!S.c||S.ev||S.b||S.evo||MG)return;openMap();}
+function ndToyTap(ev){if(ev)ev.stopPropagation();const c=S.c;if(!c||!ndOn()||S.ev||S.b||MG||away())return;const n=ndOf(c);ndSat('pl',55);emAdd({j:6,d:-4});c.bond=cl(c.bond+1);setSay('🎾 เล่นของเล่นกัน!',2000);if(n.cue&&n.cue.k==='pl')ndEndCue(c,n);ndToy(false);render();}
+
+// ---------- แผงในสมุดบันทึก ----------
+function ndPanel(){
+  const c=S.c;if(!c||!c.soul)return '';const n=ndOf(c);ndRank(c,n);
+  const bar=x=>'█'.repeat(Math.round(x/12.5))+'░'.repeat(8-Math.round(x/12.5)),known=NDK.filter(k=>n.k[k]);
+  const rows=NDK.map(k=>{const D=NDD[k];if(!n.k[k])return `<div style="font-size:11px">${D.ic} ❓ ยังไม่รู้ใจด้านนี้</div>`;
+    return `<div style="font-family:monospace;font-size:11px">${D.ic} ${bar(n.v[k])} ${Math.round(n.v[k])}${n.v[k]>=66?' ⬅ '+D.n:''}</div>`+(n.v[k]>=66?`<div style="font-size:10px;opacity:.75;margin-left:14px">${D.cue} · ${D.fix}</div>`:'');}).join('');
+  const pr=n.rank[0],head=n.k[pr]?`${NDD[pr].ic} ${c.name}${NDD[pr].learn}`:'ยังไม่รู้ว่า '+c.name+' ต้องการอะไรเป็นพิเศษ — สังเกตท่าทางแล้วลองตอบสนองดู';
+  return `<div class="card log" style="text-align:left;padding:8px"><b style="font-size:12px">🧬 ความต้องการเฉพาะตัว</b><div style="margin:3px 0;font-size:12px">${head}</div>${rows}<small>รู้ใจแล้ว ${known.length}/5${n.buf>=S.day?' · 💗 ใจฟู (ฝึกได้ดีขึ้น)':''}${n.sulk>=S.day&&n.sulk>0?' · 😤 งอน':''}</small></div>`;
+}
+
+// ---------- CSS ----------
+(function css(){
+  if(document.getElementById('ndCss'))return;const s=document.createElement('style');s.id='ndCss';
+  s.textContent=`#room .spot .vis{display:none!important}
+.spot .ndu{position:absolute;top:-12px;right:-8px;min-width:24px;height:24px;padding:0 3px;border-radius:12px;background:var(--card);border:2px solid var(--ac);font-size:15px;line-height:1;align-items:center;justify-content:center;gap:1px;pointer-events:none;display:none}
+.spot.ndcall{border-color:var(--ac);animation:ndpulse .8s infinite alternate}@keyframes ndpulse{to{box-shadow:0 0 0 5px rgba(232,131,58,.45)}}
+#ndDoor{position:absolute;left:4%;top:58%;transform:translate(-50%,-50%);width:40px;display:flex;flex-direction:column;align-items:center;padding:2px 0;background:var(--card);border:2px solid var(--bd);border-radius:10px;font:inherit;font-size:20px;line-height:1;cursor:pointer;z-index:1;opacity:.9}
+#ndDoor small{font-size:8px}#ndDoor.on{border-color:var(--ac);animation:ndpulse .8s infinite alternate}
+#ndToy{position:absolute;transform:translate(-50%,-100%);background:none;border:0;font-size:26px;cursor:pointer;animation:ndhop .5s infinite alternate;display:none}
+#ndBadge{position:absolute;right:-6px;top:-6px;font-size:18px;animation:ndhop .6s infinite alternate;pointer-events:none;display:none}
+@keyframes ndhop{to{transform:translateY(-6px)}}
+#pet.ndJoyA #petFlip{animation:ndhop .25s 5 alternate}
+.ndfl{position:absolute;font-size:18px;pointer-events:none;z-index:900;animation:ndfl 1.3s forwards}@keyframes ndfl{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-46px)}}
+.ndv{position:absolute;transform:translate(-50%,-100%);pointer-events:none;display:flex;flex-direction:column;align-items:center}
+.ndv .ndvi{font-size:34px;line-height:1}.ndv .ndvs svg{width:calc(var(--w)*.2);height:auto;display:block}
+.ndv small{font-size:9px;background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:0 5px;margin-top:1px;white-space:nowrap}
+.ndv.walk .ndvi{animation:hop .3s infinite}.ndv.use-lift .ndvi{animation:sq .7s infinite}.ndv.use-run .ndvi{animation:hop .25s infinite}.ndv.use-read .ndvi{animation:tilt 1.4s infinite}`;
+  document.head.appendChild(s);
+})();
+
+// ---------- ต่อเข้ากับระบบเดิม ----------
+{
+  const _vt=visTick;visTick=function(){_vt.apply(this,arguments);try{ndTick();}catch(e){console.error('needs',e);}};
+  const _ml=moveLoop;moveLoop=function(){
+    const c=S.c;if(c&&c.ab&&c.ab.k==='frp'&&ND.v){c.ab.x=Math.max(6,Math.min(94,ND.v.x-7));c.ab.y=ND.v.y;}
+    const r=_ml.apply(this,arguments);try{ndFrame();}catch(e){console.error('needs frame',e);}return r;};
+  const _sd=soulDis;soulDis=function(c,k){let p=_sd.apply(this,arguments);try{const n=c.soul&&ndOf(c);if(n){const tr=k==='read'||k==='lift'||k==='run';
+    if(tr&&n.v.rs>=70)p+=.12;if(tr&&n.v.ch>=70)p-=.1;if(k==='rest'&&n.v.rs>=60)p-=.15;if(n.sulk>=S.day&&n.sulk>0)p+=.15;}}catch(e){}return p;};
+  const _sn=soulDisNote;soulDisNote=function(c,k){let t=_sn.apply(this,arguments);try{const x=ndSay(c,k);if(x)t=t?t+' · '+x:x;}catch(e){}return t;};
+  const _et=emTap;emTap=function(ev){const c=S.c,b=c&&c.emTap;_et.apply(this,arguments);try{if(c&&c.emTap!==b&&c.emTap===S.tick)ndSat('pl',45);}catch(e){}};
+  const pe=document.getElementById('pet');if(pe){pe.removeEventListener('click',_et);pe.addEventListener('click',emTap);}
+  const _me=mgEnd;mgEnd=function(sc){const c=S.c,k=MG&&MG.SK,b=k?c[k]:0,done=MG&&MG.done;_me.apply(this,arguments);try{if(!k||done)return;const n=c.soul&&ndOf(c);
+    if(n&&n.buf>=S.day)c[k]+=(c[k]-b)*.12;ndSat('ch',sc>=.6?55:sc>=.3?40:15);}catch(e){}};
+  const _da=doAct;doAct=function(c){const a=c.act,k=({read:'int',lift:'str',run:'spd'})[a],b=k?c[k]:0;_da.apply(this,arguments);try{
+    if(k){const n=c.soul&&ndOf(c);if(n&&n.buf>=S.day)c[k]+=(c[k]-b)*.12;ndSat('ch',6);}else if(a==='work')ndSat('ch',3);}catch(e){}};
+  const _xe=xFightEnd;xFightEnd=function(w,b){const r=_xe.apply(this,arguments);try{ndSat('ch',w?40:15);if(w)ndSat('ex',12);}catch(e){}return r;};
+  const _pl=play;play=function(){const r=_pl.apply(this,arguments);try{ndSat('pl',30);}catch(e){}return r;};
+  const _ep=emPanel;emPanel=function(){let t='';try{t=ndPanel();}catch(e){}return t+_ep.apply(this,arguments);};
+  const _cd=cqDay;cqDay=function(c){_cd.apply(this,arguments);try{if(c.soul){const n=ndOf(c);NDK.forEach(k=>{n.v[k]=cl(n.v[k]-3);});}}catch(e){}};
+}
+}
+
+
+// ################ preferences-plus ################
+// ===== preferences-plus · ต่อยอดความชอบเฉพาะตัว: 🍽️อาหาร · 🛏️ที่พัก · 🤝วิธีฝึก (ต่อจาก พื้นที่/อากาศ/ศัตรู/เพื่อน/ของ/กิจกรรม/สไตล์ ที่มีอยู่แล้ว) · โหลดหลังสุด =====
+// ใช้ระบบ pf เดิมทั้งชุด (สุ่มคงที่ตามเมล็ดพันธุ์ · สืบทอดให้รุ่นลูก · ซ่อนไว้จนค้นพบ · โชว์ใน 🎯 ความชอบเฉพาะตัว ของสมุดสัตว์) แค่เพิ่ม 3 หมวดใหม่
+// 🍽️ อาหาร: วางอาหารลง → สัตว์มีท่าทางแปลกๆ (ตาเป็นประกาย/ทำหน้าเบ้) · กินแล้วถูกใจ: สนิท+ อารมณ์ดี พลังฟื้นนิดหน่อย บางครั้งเกิดความทรงจำพิเศษ · ไม่ถูกใจ: อิ่มน้อยลง 35%
+//    กันสูตรตายตัว: กินชนิดเดิมซ้ำติดๆ ความฟินลดลงทุกครั้ง (ครั้งที่ 3 ติด = ไม่ได้โบนัส และเริ่มเลี่ยน อิ่มน้อยลง) · อาหารที่ไม่ชอบกินครบ 5 ครั้งจะเริ่มชิน
+// 🛏️ ที่พัก: ตอนงีบเอง สัตว์ไปนอนที่ที่ชอบ (เตียง/มุมข้างประตู/กลางห้องที่แดดส่อง) ฟื้นพลังไวกว่า · บางตัวไม่ถูกกับเตียง สั่งพักบนเตียงแล้วฟื้นช้า
+// 🤝 วิธีฝึก: ฝึกกับเจ้าของ (มินิเกม) · ฝึกเอง (ออโต้) · ฝึกพร้อมเพื่อน (เพื่อนใช้อุปกรณ์เดียวกัน) — ถูกวิธีผลฝึก +12% ไม่ถูก −10%
+{
+const RPD={bed:{ic:'🛏️',n:'เตียงนุ่มๆ'},door:{ic:'🚪',n:'มุมข้างประตู',x:10,y:84},sun:{ic:'☀️',n:'กลางห้องที่แดดส่อง',x:50,y:86}};
+const rpPos=k=>k==='bed'?{x:SPOTS.rest.tx,y:SPOTS.rest.ty}:{x:RPD[k].x,y:RPD[k].y};
+const TMD={owner:['🤝','ฝึกกับเจ้าของ'],self:['🧍','ฝึกเอง'],buddy:['👯','ฝึกพร้อมเพื่อน']};
+PFD.push('fd','rp','tm');Object.assign(PFN,{fd:'อาหาร',rp:'ที่พัก',tm:'วิธีฝึก'});
+const _pl=pfLbl;pfLbl=function(d,v){if(d==='fd')return FOODS[v].ic+FOODS[v].n;if(d==='rp')return RPD[v].ic+RPD[v].n;if(d==='tm')return TMD[v].join(' ');return _pl.apply(this,arguments);};
+
+// สร้างความชอบใหม่ให้สัตว์ทุกตัว (รวมตัวเก่าที่เซฟไว้) · คงที่ตามเมล็ดพันธุ์
+function pfX(c){
+  const P=pfOf(c),sd=(c.seed||1);
+  if(!P.fd){const r=rng(sd*37+5),a=Object.keys(FOODS),l=a[Math.floor(r()*a.length)];let d=null;if(r()<.55){const o=a.filter(k=>k!==l);d=o[Math.floor(r()*o.length)];}P.fd={l,d};}
+  if(!P.rp){const r=rng(sd*41+7),a=['bed','door','sun'],l=a[Math.floor(r()*3)];P.rp={l,d:(l!=='bed'&&r()<.35)?'bed':null};}
+  if(!P.tm){const r=rng(sd*43+9),a=['owner','self','buddy'],l=a[Math.floor(r()*3)];let d=null;if(r()<.55){const o=a.filter(k=>k!==l);d=o[Math.floor(r()*o.length)];}P.tm={l,d};}
+  return P;
+}
+const pfV=(P,k)=>P.l===k?1:P.d===k?-1:0;
+function pfFl(ch,n){const r=document.getElementById('room'),c=S.c;if(!r||!c)return;for(let i=0;i<n;i++){const e=document.createElement('span');e.className='ndfl';e.textContent=ch;e.style.left=(c.x+(Math.random()*14-7))+'%';e.style.top=(c.y-14)+'%';e.style.animationDelay=(i*.18)+'s';r.appendChild(e);setTimeout(()=>e.remove(),1500);}}
+function pfHop(){const p=document.getElementById('pet');if(!p)return;p.classList.remove('ndJoyA');void p.offsetWidth;p.classList.add('ndJoyA');setTimeout(()=>p.classList.remove('ndJoyA'),1300);}
+
+// ---------- 🍽️ อาหาร ----------
+{
+  const _ea=eat;eat=function(k){const had=!!S.food;_ea.apply(this,arguments);try{const c=S.c;if(!c||!c.soul||had||!S.food)return;const v=pfV(pfX(c).fd,k);
+    if(v>0){setSay(pk(['👀✨ ตาเป็นประกายเลย!','🤩 อาหารนี้เหรอ! ตื่นเต้นจัง','😍 หางส่ายใหญ่เลย']),2600);pfFl('✨',2);}
+    else if(v<0)setSay(pk(['😒 หืม… ดมแล้วทำหน้าเบ้','🤨 มองอาหารนิ่งๆ ไม่ค่อยกระตือรือร้น']),2800);}catch(e){}};
+  const _fe=finishEat;finishEat=function(){const c=S.c,k=S.food&&S.food.k,b=c?[c.hun,c.en]:null;_fe.apply(this,arguments);try{if(c&&c.soul&&k)pfFood(c,k,b);}catch(e){console.error('pfFood',e);}};
+  function pfFood(c,k,b){
+    const so=c.soul,P=pfX(c).fd,v=pfV(P,k),F=FOODS[k],same=so.fdL===k;
+    so.fdS=same?(so.fdS|0)+1:0;so.fdL=k;
+    const f=Math.max(0,1-.45*so.fdS),gain=b?Math.max(0,c.hun-b[0]):0; // กินซ้ำ: f = 1 → .55 → .1
+    if(v>0){
+      if(f>0){c.bond=cl(c.bond+1.5*f);emAdd({j:12*f,d:-8*f});c.en=cl(c.en+6*f);}
+      if(f>=.5){setSay(pk(['🥰 อร่อยที่สุดเลย!','😋 ชอบอันนี้จัง!','✨ ฟินมาก!']),2800);pfFl('❤️',3);pfHop();
+        pfRev('fd','l',`${c.name}ดูเหมือนจะชอบ ${F.ic}${F.n} เป็นพิเศษ — ดีใจจนตัวเด้ง`);
+        if(Math.random()<.2){soulMem('food',`${c.name}ได้กิน ${F.ic}${F.n} แล้วมีความสุขสุดๆ จำได้ไม่ลืม`,3,F.ic,null);log('🌟 ความทรงจำพิเศษ: '+c.name+'ฟินกับ'+F.n+'มาก');}
+      }else setSay('😅 อร่อยนะ… แต่กินซ้ำๆ เริ่มเฉยๆ แล้ว',2800);
+    }else if(v<0){
+      c.hun=cl(c.hun-gain*.35);emAdd({a:5,d:5,j:-4});setSay('😖 ฝืนกิน… ไม่ค่อยชอบเลย',2800);
+      pfRev('fd','d',`${c.name}ไม่ค่อยชอบ ${F.ic}${F.n} — ทำหน้าเบ้ (อิ่มน้อยกว่าปกติ)`);
+      so.fdD=so.fdD||{};so.fdD[k]=(so.fdD[k]|0)+1;if(so.fdD[k]>=5){P.d=null;log('🌱 '+c.name+'เริ่มชินกับ '+F.n+' แล้ว ไม่ค่อยเบ้หน้าอีก');}
+    }
+    if(so.fdS>=2&&v>=0){c.hun=cl(c.hun-gain*.25);if(v===0)setSay('😑 กินอันเดิมซ้ำๆ เริ่มเลี่ยนแล้ว',2600);} // เลี่ยน: กันกินชนิดเดียวซ้ำๆ
+    render();
+  }
+  const _sf=showFeed;showFeed=function(){_sf.apply(this,arguments);try{const b=$('feedBub'),c=S.c;if(!b||b.style.display!=='block'||!c||!c.soul)return;const P=pfX(c).fd,so=c.soul;
+    b.querySelectorAll('button').forEach(bt=>{const m=/eat\('(\w+)'\)/.exec(bt.getAttribute('onclick')||'');if(!m)return;const k=m[1];let mk='';
+      if(P.l===k&&pfK('fd','l'))mk='❤️';else if(P.d===k&&pfK('fd','d'))mk='💢';if(so.fdL===k&&so.fdS>=1)mk+='🔁';
+      if(mk)bt.insertAdjacentHTML('afterbegin','<span style="float:right">'+mk+'</span>');});}catch(e){}};
+}
+
+// ---------- 🛏️ ที่พัก ----------
+{
+  const _as=abStart;abStart=function(c,k){_as.apply(this,arguments);try{if(k!=='nap'||!c.ab||!c.soul)return;const P=pfX(c).rp;
+    if(Math.random()<.7&&P.l){const p=rpPos(P.l);c.ab.x=p.x+(P.l==='bed'?0:ri(-6,6));c.ab.y=p.y+ri(-2,2);c.ab.rp=P.l;}}catch(e){}};
+  const _ss=soulStep;soulStep=function(c){_ss.apply(this,arguments);try{
+    if(!c.soul)return;const P=pfX(c).rp;let key=null;
+    if(c.ab&&c.ab.k==='nap'&&c.ab.rp&&Math.hypot(c.x-c.ab.x,c.y-c.ab.y)<8)key=c.ab.rp;else if(c.act==='rest'&&c.at)key='bed';
+    if(!key)return;const v=pfV(P,key);if(!v)return;
+    if(v>0){c.en=cl(c.en+1.6);emAdd({j:.8});if(Math.random()<.35)pfRev('rp','l',`${c.name}นอนที่ ${RPD[key].ic}${RPD[key].n} แล้วหลับสบายเป็นพิเศษ — ฟื้นพลังไวกว่าที่อื่น`);}
+    else{c.en=cl(c.en-1.2);emAdd({a:1});if(Math.random()<.35)pfRev('rp','d',`${c.name}นอน ${RPD[key].ic}${RPD[key].n} แล้วพลิกตัวไปมาไม่ค่อยหลับ — ไม่ถูกกับที่นอนนี้ (ปล่อยให้งีบที่อื่นดีกว่า)`);}
+  }catch(e){}};
+}
+
+// ---------- 🤝 วิธีฝึก ----------
+{
+  const MSG={owner:['ชอบฝึกกับเจ้าของ — ตั้งใจเป็นพิเศษ (ผลฝึกดีขึ้น)','ไม่ค่อยชอบถูกสั่งให้ฝึก — ทำไปงั้นๆ (ผลฝึกลดลง)'],
+    self:['ชอบฝึกเองตามจังหวะของตัวเอง (ผลฝึกดีขึ้น)','ไม่ค่อยชอบฝึกคนเดียว… เหงาๆ (ผลฝึกลดลง)'],
+    buddy:['ชอบฝึกพร้อมเพื่อน — คึกขึ้นมาก (ผลฝึกดีขึ้น)','ไม่ชอบฝึกต่อหน้าเพื่อน — เกร็ง (ผลฝึกลดลง)']};
+  function tmApply(c,b,ms){
+    const P=pfX(c).tm;let f=1,hit=null;ms.forEach(m=>{const v=pfV(P,m);if(v){f*=v>0?1.12:.9;if(!hit)hit=[m,v];}});
+    if(f!==1){c.str=b[0]+(c.str-b[0])*f;c.spd=b[1]+(c.spd-b[1])*f;c.int=b[2]+(c.int-b[2])*f;}
+    if(hit){emAdd(hit[1]>0?{j:.6,d:-.4}:{j:-.3,d:.3});pfRev('tm',hit[1]>0?'l':'d',`${c.name}${MSG[hit[0]][hit[1]>0?0:1]}`);}
+  }
+  const _da=doAct;doAct=function(c){const a=c.act,k=({read:'int',lift:'str',run:'spd'})[a];if(!k||!c.soul)return _da.apply(this,arguments);
+    const b=[c.str,c.spd,c.int];_da.apply(this,arguments);try{tmApply(c,b,(S.vis&&S.vis.k===a)?['self','buddy']:['self']);}catch(e){}};
+  const _me=mgEnd;mgEnd=function(sc){const c=S.c,k=MG&&MG.SK,sp=MG&&MG.k,done=MG&&MG.done,b=c?[c.str,c.spd,c.int]:null;_me.apply(this,arguments);
+    try{if(!c||!c.soul||!k||done)return;tmApply(c,b,(S.vis&&S.vis.k===sp)?['owner','buddy']:['owner']);}catch(e){}};
+}
+{
+  const _pp=pfPanel;pfPanel=function(){try{if(S.c&&S.c.soul)pfX(S.c);}catch(e){}return _pp.apply(this,arguments);};
+}
+}
+
+
+// ################ soul-memory-plus ################
+// ===== soul-memory-plus · ให้ Soul Memory มีผลต่อเกมเพลย์จริง · โหลดหลังสุด =====
+// ของเดิมมีอยู่แล้ว: ระดับความทรงจำ · ตัวตน(imprint) · แผลใจ · กลัว/แค้น · เพื่อนที่เคยช่วยกลับมา(สำรวจ) · ความฝัน · สืบทอดรุ่นลูก → ส่วนนี้ต่อยอดให้ "จำแล้วเปลี่ยนพฤติกรรม" ให้ครบ 3 เหตุการณ์
+// 🤝 ช่วยเพื่อนไว้: จำชื่อ "คนที่เคยช่วย" → เพื่อนคนนั้นมาเยี่ยมที่บ้าน สัตว์วิ่งไปทักด้วยท่าทางเฉพาะตามบุคลิก เพื่อนมอบของขอบคุณ (ครั้งแรก = ความทรงจำของขวัญชิ้นแรก) สนิทเพิ่ม
+// 😨 แพ้ศัตรู: เจอตัวเดิมอีก → ตัวสั่น/ใจเสีย (ตีอ่อนลงตามของเดิม) · ถ้ากลับมาชนะ ความทรงจำ "ฝังใจ/แค้น" ถูกเขียนใหม่เป็น 🌅 "ก้าวข้ามความกลัว" และสู้กับตัวนั้นได้ดีขึ้นถาวร +5%
+// 🫶 เจ้าของช่วยไว้: ใช้ของ/ตั้งรับตอนสัตว์ใกล้ล้ม (HP ≤40%/≤35%) = "ความไว้ใจ" +1 (สูงสุด 10) → ดื้อน้อยลง · เจอศัตรูที่เคยกลัวพร้อมเจ้าของจะกล้าขึ้น · ได้ความทรงจำ 🫶 ครั้งแรก/ครั้งที่ 3/6
+// 💗 ความทรงจำเพื่อใจ: ไม่มีผลต่อค่าสเตตัสเลย (พบเพื่อนครั้งแรก · เล่นกับเจ้าของจนเหนื่อย · ของขวัญชิ้นแรก · วิวัฒนาการ · ลืมตา · เมนูโปรด ฯลฯ) ติด 💗 ไว้ที่ไอคอน
+//    แต่ "ถูกนึกถึง" ได้: สัตว์ไปนั่งรำลึกเอง (อารมณ์ดีขึ้นเบาๆ) และมีวัน 🎂 ครบรอบความทรงจำสำคัญ
+{
+const HEART=['friend','played','gift','evolve','wake','birth','nap','hobby','reunion','food'];
+const POS=['friend','win','streak','boss','revenge','trip','overcame','reunion','gift','played','evolve','food','legend','rescued','help','hobby','nap','relation'];
+const NEG=['fear','lose','slump','grudge','betray','scar','hurt'];
+const smSo=()=>{const c=S.c;return c&&c.soul?c.soul:null;};
+function smFl(ch,n){const r=document.getElementById('room'),c=S.c;if(!r||!c)return;for(let i=0;i<n;i++){const e=document.createElement('span');e.className='ndfl';e.textContent=ch;e.style.left=(c.x+(Math.random()*14-7))+'%';e.style.top=(c.y-14)+'%';e.style.animationDelay=(i*.18)+'s';r.appendChild(e);setTimeout(()=>e.remove(),1500);}}
+const smShort=(t,n)=>t.length>n?t.slice(0,n)+'…':t;
+
+(function css(){
+  if(document.getElementById('smCss'))return;const s=document.createElement('style');s.id='smCss';
+  s.textContent='.smtr svg{animation:smtr .11s infinite alternate}@keyframes smtr{to{transform:translateX(2.5px) rotate(2deg)}}';
+  document.head.appendChild(s);
+})();
+
+// ---------- 💗 ความทรงจำเพื่อใจ ----------
+{
+  const _sm=soulMem;soulMem=function(k,t,w,ic,rx){_sm.apply(this,arguments);try{const so=smSo();if(!so||!HEART.includes(k)||!so.j[0]||so.j[0].k!==k)return;const e=so.j[0];e.h=1;if(String(e.ic).indexOf('💗')<0)e.ic=e.ic+'💗';}catch(e){}};
+}
+
+// ---------- 🤝 คนที่เคยช่วย ----------
+{
+  const _fr=soulFriend;soulFriend=function(name,ic,how,real){_fr.apply(this,arguments);try{const so=smSo();if(so&&name&&how==='help'){so.helped=so.helped||{};if(!so.helped[name])so.helped[name]={ic,d:S.day,g:0};}}catch(e){}};
+  let prev=null;
+  function smGreet(c,w){
+    const so=c.soul,h=so.helped&&so.helped[w.n];if(!h)return;h.g=(h.g|0)+1;const first=h.g===1;
+    if(!c.act&&!S.food&&!c.ab&&!away()&&!MG&&!S.ev&&!S.b)c.ab={k:'frp',t:ri(9,12),x:50,y:80,nd:0}; // วิ่งไปหาเพื่อน (ระบบเพื่อนในบ้านจะพาไปตามตัวเอง)
+    setSay((first?'🥹 ':'😆 ')+w.ic+w.n+'! '+(soulReact(c,'help')||'ดีใจที่ได้เจออีก'),3600);smFl('❤️',4);
+    c.bond=cl(c.bond+2);emAdd({j:8,d:-5});const r=bl()[w.n];if(r&&r.met)blSet(r,{af:3});
+    if(first){log(`🤝 ${w.ic}${w.n} คนที่ ${c.name}เคยช่วยไว้ มาหาถึงบ้านเพื่อขอบคุณ!`);soulMem('reunion',`${w.ic}${w.n}ที่เคยช่วยไว้ มาหาถึงบ้านเพื่อขอบคุณ — ${c.name}ดีใจจนหางส่าย`,3,'🤝',null);}
+    else log(`${w.ic} ${w.n} แวะมาหา ${c.name} อีกแล้ว ทั้งคู่ทักทายกันเหมือนเพื่อนสนิท`);
+    if(first||Math.random()<.35){const m=ri(25,70)+(first?30:0);S.money+=m;log(`🎁 ${w.ic}${w.n}ยื่นของขอบคุณให้ (ขายได้ ฿${m})`);
+      if(!so.gf){so.gf=1;soulMem('gift',`ของขวัญชิ้นแรกในชีวิต จาก ${w.ic}${w.n} ด้วยความขอบคุณ`,3,'🎁',null);}}
+  }
+  const _vt=visTick;visTick=function(){_vt.apply(this,arguments);try{const v=S.vis;if(v&&v!==prev){prev=v;if(S.c&&S.c.soul)smGreet(S.c,v.w);}else if(!v)prev=null;}catch(e){console.error('smGreet',e);}};
+}
+
+// ---------- 😨→🌅 ความกลัว/แค้น ที่ถูกเขียนใหม่ ----------
+{
+  const _f=soulFight;soulFight=function(w,b){
+    const so=smSo(),nm=so?fightName(b):'',hadF=!!(so&&so.fear[nm]>=2),hadG=!!(so&&so.grudge[nm]),n0=so?so.j.length:0;
+    _f.apply(this,arguments);
+    try{if(!so||!w||!(hadF||hadG))return;
+      const nw=Math.max(0,so.j.length-n0),dup=so.j.slice(0,nw).filter(e=>/ก้าวข้ามความกลัว|แก้แค้น/.test(e.t)&&['fear','revenge','legend'].includes(e.k));
+      dup.forEach(e=>{const i=so.j.indexOf(e);if(i>=0)so.j.splice(i,1);});
+      const old=so.j.find(e=>!e.ov&&(hadF?e.k==='fear':e.k==='grudge')&&e.t.indexOf(nm)>=0&&!/ก้าวข้าม/.test(e.t));
+      so.ov=so.ov||{};so.ov[nm]=S.day;
+      const txt=hadF?`ก้าวข้ามความกลัว ${nm}: จากวันที่ขวัญหนี สู่วันที่ยืนหยัดและเอาชนะได้ — ความกลัวกลายเป็นความภูมิใจ`:`ชำระแค้น ${nm} ได้ในที่สุด — ความแค้นกลายเป็นความภูมิใจ`;
+      if(old){old.k='overcame';old.ov=1;old.ic='🌅';old.t=txt;old.w=Math.max(old.w,4);old.d2=S.day;old.r=soulReact(S.c,'win')||old.r;}
+      else soulMem('overcame',txt,4,'🌅','win');
+      if(b.L)b.L.unshift('🌅 ความทรงจำเก่าถูกเขียนใหม่ จาก “ความกลัว” เป็น “ความภูมิใจ”');
+      log('🌅 '+S.c.name+txt.split(' — ')[0]);setSay('🌅 ผ่านมาได้แล้ว…',2600);
+    }catch(e){console.error('smOvercome',e);}
+  };
+  const _m=soulFightMul;soulFightMul=function(c,b){let r=_m.apply(this,arguments);
+    try{const so=c.soul;if(so&&c===S.c){const nm=fightName(b);let n='';
+      if(so.ov&&so.ov[nm]){r*=1.05;n='🌅 เคยก้าวข้าม '+nm+' มาแล้ว ครั้งนี้ไม่กลัว!';}
+      if(so.fear[nm]>=2&&(so.trust|0)>=2){r*=1.06;n='🫶 มีเจ้าของอยู่ข้างๆ ความกลัว '+nm+' เบาลง';}
+      if(n&&!b._smn){b._smn=1;b.L.unshift(n);}}}catch(e){}return r;};
+  function smIntro(){
+    const b=S.b,c=S.c,so=c&&c.soul;if(!b||!so||b._smi)return;b._smi=1;const nm=fightName(b);
+    const fear=so.fear[nm]>=1||(so.im||[]).some(i=>i.id==='phobia'&&i.t===nm);
+    if(so.ov&&so.ov[nm])setSay('🌅 ครั้งนี้ไม่กลัวแล้ว!',2800);
+    else if(fear&&(so.trust|0)>=2)setSay('🫶 มีเจ้าของอยู่ข้างๆ… ไม่กลัว',2800);
+    else if(fear){setSay('😰 …ตัวนี้อีกแล้ว',2800);const s=document.getElementById('fPs');if(s){s.classList.add('smtr');setTimeout(()=>s.classList.remove('smtr'),3200);}}
+  }
+  const _ob=openBattle;openBattle=function(){const r=_ob.apply(this,arguments);try{smIntro();}catch(e){}return r;};
+}
+
+// ---------- 🫶 เจ้าของช่วยไว้ ----------
+{
+  function smRescue(b,how){
+    const c=S.c,so=c&&c.soul;if(!so||b._rsc)return;b._rsc=1;
+    so.rs=(so.rs|0)+1;so.trust=Math.min(10,(so.trust|0)+1);c.bond=cl(c.bond+4);soulShift({kind:1});emAdd({j:6,d:-8,a:-6});
+    setSay('🥹 เจ้าของมาช่วยไว้ทัน!',2800);smFl('❤️',3);
+    if(b.L)b.L.unshift(how==='item'?'🫶 เจ้าของส่งของมาให้ทันเวลา! '+c.name+'รู้สึกปลอดภัย (สนิท +4 · ไว้ใจ +1)':'🫶 เจ้าของสั่งให้ตั้งรับทัน! '+c.name+'รู้สึกปลอดภัย (สนิท +4 · ไว้ใจ +1)');
+    if(so.rs===1)soulMem('rescued',`${c.name}ถูกต้อนจนใกล้ล้มในศึก แต่เจ้าของเข้ามาช่วยไว้ทัน — จะไม่ลืมวันนี้`,3,'🫶','help');
+    else if(so.rs===3||so.rs===6)soulMem('rescued',`เจ้าของช่วยไว้ในยามคับขันเป็นครั้งที่ ${so.rs} ความไว้ใจลึกขึ้น`,3,'🫶','help');
+    try{updBattle();}catch(e){}
+  }
+  const _xh=xHeal;xHeal=function(){const b=S.b,low=!!(b&&b.xf&&!b.end&&b.ph/b.pm<=.4),h0=b?b.ph:0;_xh.apply(this,arguments);try{if(low&&S.b===b&&b.ph>h0)smRescue(b,'item');}catch(e){}};
+  const _br=bbRound;bbRound=function(){const b=S.b,cmd=b&&b.cmd,r0=b?b.ph/b.pm:1;const r=_br.apply(this,arguments);try{if(b&&cmd==='def'&&r0<=.35&&S.b===b&&!b.end&&b.ph>0)smRescue(b,'def');}catch(e){}return r;};
+  const _sd=soulDis;soulDis=function(c,k){let p=_sd.apply(this,arguments);try{const t=c.soul&&(c.soul.trust|0);if(t)p-=Math.min(.15,t*.02);}catch(e){}return p;};
+}
+
+// ---------- 💗 เล่นกับเจ้าของจนเหนื่อย · 🎂 ครบรอบ · 🌙 รำลึก ----------
+{
+  const _et=emTap;emTap=function(){const c=S.c,b=c&&c.emTap;_et.apply(this,arguments);try{if(c&&c.soul&&c.emTap!==b)c.soul.pc=(c.soul.pc|0)+1;}catch(e){}};
+  const pe=document.getElementById('pet');if(pe){pe.removeEventListener('click',_et);pe.addEventListener('click',emTap);}
+  const _pl=play;play=function(){const r=_pl.apply(this,arguments);try{const so=smSo();if(so)so.pc=(so.pc|0)+2;}catch(e){}return r;};
+  const _cd=cqDay;cqDay=function(c){_cd.apply(this,arguments);try{
+    const so=c.soul;if(!so)return;
+    // เล่นจนเหนื่อย
+    const sat=c.nd?c.nd.sat|0:0,pc=(so.pc|0)+Math.max(0,sat-(so.sat0|0));so.sat0=sat;
+    if(pc>=4&&c.en<60&&S.day-(so.pl|0)>=8){so.pl=S.day;soulMem('played',`วันที่ ${c.name}เล่นกับเจ้าของทั้งวันจนเหนื่อยหมดแรง แต่หัวเราะไม่หยุด`,3,'🎾',null);}
+    so.pc=0;
+    // ครบรอบความทรงจำสำคัญ
+    if(S.day-(so.ann|0)>=3){const e=so.j.find(x=>x.w>=4&&!['imprint','inherit','death','old'].includes(x.k)&&S.day>x.d+5&&(S.day-x.d)%20===0);
+      if(e){so.ann=S.day;log(`🎂 วันนี้ครบรอบ ${S.day-e.d} วัน ของ ${e.ic} “${smShort(e.t,40)}”`);setSay('🥹 วันนี้เป็นวันสำคัญนะ…',3200);emAdd({j:8,d:-4});c.bond=cl(c.bond+1);smFl('✨',3);}}
+  }catch(e){console.error('smDay',e);}};
+  const _ss=soulStep;soulStep=function(c){_ss.apply(this,arguments);try{
+    const so=c.soul;if(!so||c.act||S.food||c.ab||away()||S.ev||S.b||S.screen!=='home'||Math.random()>.03||S.tick-(so.rcl|0)<30)return;
+    const pool=so.j.filter(e=>e.w>=3&&!['imprint','inherit','death','old','wake'].includes(e.k));if(!pool.length)return;
+    const e=pk(pool.flatMap(x=>(x.h||x.ov)?[x,x]:[x]));so.rcl=S.tick;
+    c.ab={k:'rcl',t:ri(6,9),x:50,y:80};
+    if(NEG.includes(e.k)){emAdd({a:2,d:1});setSay((so.trust|0)>=3?'😶 นึกถึงเรื่องเก่า… แต่มีเจ้าของอยู่แล้ว':'😶 นึกถึง “'+smShort(e.t,22)+'” เบาๆ',3600);if((so.trust|0)>=3)emAdd({j:1});}
+    else{emAdd({j:4,d:-3});c.bond=cl(c.bond+.3);setSay('🌙 นึกถึงวันที่ '+e.ic+' “'+smShort(e.t,24)+'”',3800);}
+  }catch(er){}};
+}
+
+// ---------- แผง: ความทรงจำที่เปลี่ยนตัวตน ----------
+function msPanel(){
+  const so=smSo();if(!so)return '';const rows=[],t=so.trust|0,H=so.helped||{},O=so.ov||{},hn=so.j.filter(e=>e.h).length;
+  if(t)rows.push(`<div style="font-family:monospace;font-size:11px">🫶 ไว้ใจเจ้าของ ${'█'.repeat(t)}${'░'.repeat(10-t)} ${t}/10</div><div style="font-size:10px;opacity:.75;margin-left:14px">เชื่อฟังมากขึ้น · เจอศัตรูที่เคยกลัวจะกล้ากว่าเดิม</div>`);
+  const hk=Object.keys(H);if(hk.length)rows.push(`<div style="font-size:11px">🤝 คนที่เคยช่วยไว้: ${hk.map(n=>H[n].ic+n).join(' · ')}</div><div style="font-size:10px;opacity:.75;margin-left:14px">มาเยี่ยมแล้วมีท่าทางพิเศษ และอาจมีของขอบคุณ</div>`);
+  const ok=Object.keys(O);if(ok.length)rows.push(`<div style="font-size:11px">🌅 ก้าวข้ามแล้ว: ${ok.join(' · ')}</div><div style="font-size:10px;opacity:.75;margin-left:14px">สู้กับตัวนี้ได้ดีขึ้นถาวร +5%</div>`);
+  if(hn)rows.push(`<div style="font-size:11px">💗 ความทรงจำเพื่อใจ ${hn} เรื่อง</div><div style="font-size:10px;opacity:.75;margin-left:14px">ไม่มีผลต่อค่าสเตตัส มีไว้ให้ผูกพันและนึกถึง</div>`);
+  if(!rows.length)return '';
+  return `<div class="card log" style="text-align:left;padding:8px"><b style="font-size:12px">🧠 ความทรงจำที่เปลี่ยนตัวตน</b>${rows.join('')}</div>`;
+}
+{
+  const _ep=emPanel;emPanel=function(){const r=_ep.apply(this,arguments);let t='';try{t=msPanel();}catch(e){}return r+t;};
+}
+}
