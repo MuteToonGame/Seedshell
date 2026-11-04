@@ -1002,3 +1002,266 @@ function pfPanel(){
   const _cd=cqDie;cqDie=function(L){_cd.apply(this,arguments);if(S.c&&S.c.soul&&L.sd)L.sd.pf=pfOf(S.c);};
   const _ch=cqHatch;cqHatch=function(c,L){_ch.apply(this,arguments);try{const P=pfOf(c),D=L&&L.sd&&L.sd.pf,got=[];if(D){PFD.forEach(d=>{if(D[d]&&Math.random()<.35){P[d]=Object.assign({},D[d]);got.push(PFN[d]);}});if(got.length)log('🧬 สืบทอดความชอบด้าน'+got.join('/')+'จากรุ่นก่อน');}}catch(e){}};
 }
+
+
+// ################ arena-battle ################
+// ===== arena-battle · สนามต่อสู้เรียลไทม์: สัตว์วิ่งสู้เอง + ท่าเด็ดประจำสาย (💪แรง ⚡เร็ว 🧠ปัญญา) สายละ 1 ท่า · โหลดหลังสุด =====
+// หลักการ: round()/bbRound() เดิมยังคำนวณดาเมจทั้งหมด สนามแค่คุมจังหวะ (วิ่งเข้าไปถึงแล้วค่อยตี) และเล่นท่าให้เห็น
+// หลอดท่าเด็ดเต็ม (+40 ต่อครั้งที่ตี, +10 ต่อครั้งที่โดนตี) → ใช้เองในจังหวะตีถัดไป · ดาเมจท่าเด็ดเป็น "ตีเพิ่ม" ซ้อนบนการตีปกติ
+// 💪 ทุบพิภพ: กระโดดสูงทุบพื้น คลื่นกระแทก 50% ทำศัตรูมึน · ⚡ พุ่งเงาสายฟ้า: พุ่งทะลุ 3 ครั้งติด · 🧠 ลูกแก้วดาว: ยืนไกล รวมพลังยิงลูกแก้ว เจาะเกราะป่า
+// ถ้าสร้างสนามไม่สำเร็จ ระบบจะกลับไปใช้การต่อสู้แบบเดิมเองโดยอัตโนมัติ
+{
+const ARL={
+  str:{ic:'💪',n:'ทุบพิภพ',m:1.8,col:'#ff8a3d',d:'กระโดดสูงแล้วทุบพื้น คลื่นกระแทก มีโอกาสทำให้ศัตรูมึน'},
+  spd:{ic:'⚡',n:'พุ่งเงาสายฟ้า',m:2.1,col:'#ffd23f',d:'พุ่งทะลุศัตรู 3 ครั้งติด'},
+  int:{ic:'🧠',n:'ลูกแก้วดาว',m:1.7,col:'#b878ff',d:'รวมพลังยิงลูกแก้วจากระยะไกล เจาะจุดอ่อน'}
+};
+const ARBG=[['#c9e9ab','#a6d48a','#7fb96b','🌳','🌿','🪨'],['#f6e8bd','#ead39a','#d2ac62','🌵','🪨','🏺'],['#f2f8fc','#d6e8f4','#b4d0e4','❄️','🧊','🪨']];
+const ARDECO=[[6,70,0],[88,64,1],[44,92,2],[14,12,1],[84,8,0],[60,14,2]];
+const arLine=c=>(c.br==='str'||c.br==='spd'||c.br==='int')?c.br:['str','spd','int'].sort((a,b)=>eff(c,b)-eff(c,a))[0];
+let AR=null;
+const arB=()=>!!(AR&&AR.on&&S.b===AR.b&&$('arena'));
+const arE=(cls,html,st)=>{const e=document.createElement('div');e.className=cls;if(html)e.innerHTML=html;if(st)arSt(e,st);return e;};
+const arSt=(e,st)=>{for(const k in st){if(k.indexOf('--')===0)e.style.setProperty(k,st[k]);else e.style[k]=st[k];}};
+const arFx=(cls,html,x,y,st,ms)=>{if(!AR)return null;const e=arE('arx '+cls,html,Object.assign({left:x+'px',top:y+'px'},st||{}));AR.box.appendChild(e);setTimeout(()=>e.remove(),ms||700);return e;};
+
+(function css(){
+  if(document.getElementById('arCss'))return;
+  const s=document.createElement('style');s.id='arCss';
+  s.textContent=`#arena.arq{display:block!important;height:250px;padding:0;overflow:hidden}
+#arena.arq .fgt{position:absolute;display:flex;flex-direction:column;align-items:center}
+#arena.arq .fgt small{font-size:10px;line-height:13px;white-space:nowrap;color:#222;text-shadow:0 1px 2px #fff9}
+#arena.arq .hp{width:64px;height:7px;margin:1px 0 2px}
+#arena.arq #fPs{width:70px;height:70px}#arena.arq #fPs svg{width:70px;height:70px;display:block}
+#arena.arq .foe{line-height:1;transform-origin:50% 100%}#arena.arq #fPs{transform-origin:50% 100%}
+#arena.arq #fx{z-index:900}
+.arsg{width:64px;height:4px;background:rgba(0,0,0,.22);border-radius:3px;overflow:hidden;margin-bottom:2px}
+.arsg i{display:block;height:100%;width:0;background:var(--c,#fc3)}
+.arsg.full i{animation:arpl .4s infinite alternate}@keyframes arpl{to{filter:brightness(1.8)}}
+.arsd{position:absolute;border-radius:50%;background:rgba(0,0,0,.24);transform:translate(-50%,-50%);pointer-events:none;z-index:50}
+.arde{position:absolute;font-size:22px;line-height:1;opacity:.85;pointer-events:none;z-index:5}
+.arx{position:absolute;pointer-events:none;transform:translate(-50%,-50%)}
+.arp{width:6px;height:6px;border-radius:50%;background:var(--c);animation:arsp .55s forwards}
+@keyframes arsp{to{transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) scale(.2);opacity:0}}
+.arr{width:18px;height:10px;border:3px solid var(--c);border-radius:50%;animation:arrg .55s forwards}
+@keyframes arrg{to{transform:translate(-50%,-50%) scale(8);opacity:0}}
+.arsl{width:84px;height:4px;border-radius:3px;background:linear-gradient(90deg,transparent,#fff,var(--c),transparent);box-shadow:0 0 8px var(--c);animation:arslk .3s forwards}
+@keyframes arslk{0%{transform:translate(-50%,-50%) rotate(var(--r)) scaleX(0);opacity:1}50%{transform:translate(-50%,-50%) rotate(var(--r)) scaleX(1)}100%{transform:translate(-50%,-50%) rotate(var(--r)) scaleX(1.15);opacity:0}}
+.argh{width:70px;height:70px;opacity:.45;filter:saturate(.5) brightness(1.7) drop-shadow(0 0 6px var(--c));animation:argf .4s forwards}
+.argh svg{width:70px;height:70px;display:block}@keyframes argf{to{opacity:0}}
+.aror{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#e1c4ff 30%,#9b5cff 65%,#5a2ec7);box-shadow:0 0 14px 4px rgba(176,110,255,.8)}
+.aror.gr{animation:arorb .48s forwards}@keyframes arorb{from{transform:translate(-50%,-50%) scale(.15)}to{transform:translate(-50%,-50%) scale(1.25)}}
+.arbn{position:absolute;left:50%;top:8px;font-weight:900;font-size:20px;color:#fff;white-space:nowrap;text-shadow:0 0 6px var(--c),0 2px 0 var(--c);animation:arbn 1s forwards;pointer-events:none}
+@keyframes arbn{0%{opacity:0;transform:translateX(-50%) scale(.6)}15%{opacity:1;transform:translateX(-50%) scale(1.15)}80%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) scale(1)}}
+.dmg.arn{top:auto;animation:arfl .9s forwards}@keyframes arfl{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,-36px)}}
+#arena.arshk{animation:arshk .32s}@keyframes arshk{20%{transform:translate(-5px,3px)}40%{transform:translate(5px,-3px)}60%{transform:translate(-3px,2px)}80%{transform:translate(2px,-1px)}}`;
+  document.head.appendChild(s);
+})();
+
+// ---------- ตัวละคร + ไทม์ไลน์ท่า ----------
+const arMk=(el,spr,x,y,w,bh,sp)=>({el,spr,x,y,z:0,sc:1,rot:0,vx:0,vy:0,q:[],cur:null,mv:0,dx:1,w,bh,sp,ph:Math.random()*6,glow:'',trail:0,tr:0,sd:null});
+function arStep(f,dt){
+  if(!f.cur){
+    if(!f.q.length)return false;
+    const s=f.cur=f.q.shift();s.t=0;s.a={x:f.x,y:f.y,z:f.z,sc:f.sc,rot:f.rot};if(s.on)s.on(f);
+  }
+  const s=f.cur;s.t+=dt*1000;
+  const k=Math.min(1,s.t/Math.max(1,s.d)),e=s.e==='in'?k*k:s.e==='out'?1-(1-k)*(1-k):k;
+  ['x','y','z','sc','rot'].forEach(p=>{if(s[p]!=null)f[p]=s.a[p]+(s[p]-s.a[p])*e;});
+  if(s.ev)s.ev.forEach(v=>{if(!v.done&&s.t>=v.t){v.done=1;v.fn(f);}});
+  if(k>=1){const end=s.end;f.cur=null;if(end)end(f);}
+  return true;
+}
+function arMove(f,tx,ty,sp,dt){
+  const dx=tx-f.x,dy=ty-f.y,d=Math.hypot(dx,dy);if(d<1){f.mv=0;return 0;}
+  const s=Math.min(d,sp*dt);f.x+=dx/d*s;f.y+=dy/d*s;f.mv=s/dt;f.dx=dx/d||f.dx;return d-s;
+}
+const arKnock=(f,from,pw)=>{const dx=f.x-from.x,dy=f.y-from.y,d=Math.hypot(dx,dy)||1;f.vx+=dx/d*(pw||110);f.vy+=dy/d*(pw||110)*.4;};
+
+// ---------- เอฟเฟกต์ ----------
+function arBurst(x,y,col,n,sp){for(let i=0;i<n;i++){const a=Math.PI*2*i/n+Math.random()*.5,r=(sp||38)*(.6+Math.random()*.7);arFx('arp','',x,y,{'--c':col,'--x':Math.cos(a)*r+'px','--y':Math.sin(a)*r*.7+'px'},650);}}
+const arRing=(x,y,col)=>arFx('arr','',x,y,{'--c':col},650);
+const arSlash=(x,y,deg,col)=>arFx('arsl','',x,y,{'--c':col,'--r':deg+'deg'},400);
+function arShake(){const a=$('arena');if(!a)return;a.classList.remove('arshk');void a.offsetWidth;a.classList.add('arshk');setTimeout(()=>a.classList.remove('arshk'),340);}
+function arGhost(f,col){if(!AR||!f.spr)return;const g=arE('arx argh',f.spr.innerHTML,{left:f.x+'px',top:(f.y-35-f.z)+'px','--c':col});AR.box.appendChild(g);setTimeout(()=>g.remove(),420);}
+function arBanner(txt,col){if(!AR)return;const e=arE('arbn',txt,{'--c':col});AR.box.appendChild(e);setTimeout(()=>e.remove(),1050);}
+function arNum(f,txt,cls){if(!AR)return;const e=arE('dmg arn '+(cls||''),null,{left:(f.x+Math.random()*16-8)+'px',top:(f.y-f.bh-f.z)+'px'});e.textContent=txt;AR.box.appendChild(e);setTimeout(()=>e.remove(),900);}
+function arTween(el,x0,y0,x1,y1,ms,arc,cb){AR.tw.push({el,x0,y0,x1,y1,t:0,d:ms,arc:arc||0,cb});}
+
+// ---------- ยิงให้ round() เดิมคำนวณจริง ----------
+function arHit(ex){
+  const b=AR&&AR.b;if(!b||b.end||S.b!==b)return;
+  let stun=0;
+  if(ex){
+    b.eh-=ex.dmg;
+    if(b.xf){if(ex.stun&&Math.random()<.5){b.stun=1;stun=1;}if(ex.brk&&b.xf.pat==='forest')b.brk=1;}
+  }
+  AR.go=1;try{round();}catch(e){console.error('arena round',e);}AR.go=0;
+  if(ex&&S.b===b){b.L.unshift(ex.ic+' '+ex.n+'! ตีเพิ่ม −'+ex.dmg+(stun?' · ศัตรูมึน 💫':''));updBattle();}
+  if(ex&&stun&&AR&&AR.on)arFx('arde','💫',AR.foe.x,AR.foe.y-AR.foe.bh-6,null,1200);
+}
+function arSigDmg(){
+  const b=AR.b,c=S.c,M=ARL[AR.ln],P=eff(c,'str')+eff(c,'spd')*.7+eff(c,'int')*.5;
+  let d=Math.round((P*.6+3)*M.m);
+  if(b.xf&&b.xf.pat==='forest'&&!(b.tg&&b.tg.includes('open'))&&AR.ln!=='int')d=Math.round(d*.35); // เกราะป่า: มีแต่สายปัญญาที่เจาะได้
+  return Math.max(1,d);
+}
+
+// ---------- สัตว์เรา: ออกท่า ----------
+function arStrike(){
+  const b=AR.b,pe=AR.pet,fo=AR.foe,L=AR.ln,M=ARL[L],cmd=b.cmd||'atk';
+  AR.cd=AR.per;
+  const sigAuto=AR.g>=100&&!['def','item','skill','ally'].includes(cmd),manual=cmd==='skill'&&(b.sp|0)>=3;
+  const dx=pe.x-fo.x,dy=pe.y-fo.y,d=Math.hypot(dx,dy)||1,ux=dx/d,uy=dy/d,rx=pe.x,ry=pe.y,col=M.col;
+  const fcx=()=>fo.x,fcy=()=>fo.y-fo.bh*.45;
+  if(cmd==='def'||(cmd==='item'&&typeof bagN==='function'&&bagN()>0)){
+    pe.q=[{d:120,sc:.9,e:'out',on:()=>{arHit();arFx('arde',cmd==='def'?'🛡️':'🍖',pe.x,pe.y-pe.bh-4,null,900);}},{d:380,sc:1,e:'out'}];
+    AR.g=Math.min(100,AR.g+15);return;
+  }
+  let ex=null,name=M.n,ic=M.ic;
+  if(sigAuto){AR.g=0;ex={dmg:arSigDmg(),ic:M.ic,n:M.n,stun:L==='str',brk:L==='int'};}
+  else{AR.g=Math.min(100,AR.g+40);}
+  const sig=!!ex||manual;
+  if(manual&&typeof bbSkill==='function'){try{const k=bbSkill(S.c);name=k.n;ic=k.ic;}catch(e){}}
+  if(sig)arBanner(ic+' '+name+'!',col);
+  const pn=ex?ex.dmg:0;
+  const impact=()=>{const x=fcx(),y=fcy();arBurst(x,y,col,8,34);};
+
+  if(!sig){ // ----- ตีปกติ
+    if(L==='int'){
+      pe.q=[{d:150,sc:1.08,z:6,e:'out',on:()=>arFx('arde','✨',pe.x,pe.y-pe.bh-2,null,400)},
+        {d:180,sc:1,z:0,on:()=>{arHit();const o=arFx('aror','',pe.x,pe.y-45,{width:'16px',height:'16px'},400);if(o)arTween(o,pe.x,pe.y-45,fcx(),fcy(),170,8,()=>{o.remove();impact();});}},
+        {d:200}];
+    }else{
+      const fast=L==='spd';
+      pe.q=[{d:fast?110:150,sc:.9,x:pe.x+ux*8,y:pe.y+uy*4,e:'out'},
+        {d:fast?100:150,sc:1.1,x:fo.x+ux*34,y:fo.y+uy*12,e:'in',on:()=>{arHit();if(fast)pe.trail=300;},end:impact},
+        {d:220,sc:1,x:rx,y:ry,e:'out'}];
+    }
+    return;
+  }
+  // ----- ท่าเด็ด (หรือท่ากดเองจากปุ่ม ✨ ในศึกบอส ใช้ท่าทางของสายตัวเอง)
+  if(L==='str'){
+    const ax=fo.x+ux*14,ay=fo.y+uy*6;
+    pe.q=[
+      {d:340,sc:.82,e:'out',on:()=>{pe.glow=col;arRing(pe.x,pe.y,col);}},
+      {d:280,x:ax,y:ay,z:92,sc:1.12,e:'out'},
+      {d:150,z:0,sc:1.25,e:'in',on:()=>arHit(ex),end:()=>{
+        pe.glow='';const x=fo.x,y=fo.y;arRing(x,y,col);setTimeout(()=>AR&&arRing(x,y,'#fff'),90);arBurst(x,y-6,col,14,52);arBurst(x,y,'#8a6a4a',8,40);arShake();
+        if(pn)arNum(fo,'-'+pn,'crit');}},
+      {d:90,sc:1},
+      {d:260,x:rx,y:ry,e:'out'}];
+  }else if(L==='spd'){
+    const px=-uy,py=ux,third=Math.max(1,Math.round(pn/3));
+    const dash=(sx,sy,deg)=>({d:105,x:fo.x+sx,y:fo.y+sy,sc:1.05,end:()=>{arSlash(fo.x,fo.y-fo.bh*.45,deg,col);arBurst(fo.x,fo.y-fo.bh*.45,col,5,26);if(pn)arNum(fo,'-'+third,'crit');}});
+    pe.q=[
+      {d:170,sc:.88,x:pe.x+ux*10,y:pe.y+uy*3,e:'out',on:()=>{pe.glow=col;}},
+      Object.assign(dash(-ux*48,-uy*10+16,-25),{on:()=>{pe.trail=900;arHit(ex);}}),
+      dash(ux*48,uy*10-14,25),
+      dash(-ux*40,-uy*8+6,90),
+      {d:230,sc:1,x:rx,y:ry,e:'out',on:()=>{pe.glow='';}}];
+    void px;void py;
+  }else{ // int
+    let orb=null;
+    pe.q=[
+      {d:480,sc:1.06,z:14,e:'out',on:()=>{pe.glow=col;orb=arFx('aror gr','',pe.x,pe.y-pe.bh-8,null,3000);arRing(pe.x,pe.y,col);}},
+      {d:380,sc:1,z:0,on:()=>{pe.glow='';if(orb){const o=orb;arTween(o,o.offsetLeft||pe.x,pe.y-pe.bh-8,fcx(),fcy(),380,46,()=>{o.remove();const x=fcx(),y=fcy();arRing(x,y,col);arRing(x,y,'#fff');arBurst(x,y,col,14,50);arFx('arde','✨',x,y-10,null,600);arShake();if(pn)arNum(fo,'-'+pn,'crit');});}},
+        ev:[{t:230,fn:()=>arHit(ex)}]},
+      {d:300}];
+  }
+}
+
+// ---------- ศัตรู ----------
+function arFoeStrike(){
+  const b=AR.b,pe=AR.pet,fo=AR.foe;if(b.end||fo.cur||fo.q.length)return;
+  const hx=fo.x,hy=fo.y,dx=pe.x-fo.x,dy=pe.y-fo.y,d=Math.hypot(dx,dy)||1;
+  fo.q=[{d:120,sc:1.1,x:fo.x-dx/d*8,y:fo.y-dy/d*3,e:'out'},
+    {d:170,sc:1.15,x:pe.x-dx/d*34,y:pe.y-dy/d*12,e:'in'},
+    {d:260,sc:1,x:hx,y:hy,e:'out'}];
+}
+
+// ---------- AI + เฟรม ----------
+function arPetAI(dt){
+  const b=AR.b,pe=AR.pet,fo=AR.foe,L=AR.ln,rng=L==='int'?120:L==='spd'?40:44;
+  const dx=pe.x-fo.x,dy=(pe.y-fo.y)*1.6,d=Math.hypot(dx,dy)||1;
+  if(AR.cd<=0){
+    const tx=fo.x+dx/d*rng,ty=fo.y+(pe.y-fo.y)/d*rng*.5,rem=arMove(pe,tx,ty,pe.sp,dt);
+    if(rem<10||(L==='int'&&d<=rng+12))arStrike();
+  }else{
+    const a=Math.atan2(pe.y-fo.y,pe.x-fo.x)+AR.dir*.7,R=rng+(L==='int'?30:36);
+    arMove(pe,fo.x+Math.cos(a)*R,fo.y+Math.sin(a)*R*.5,pe.sp*.55,dt);
+    if(Math.random()<dt*.25)AR.dir*=-1;
+  }
+}
+function arFoeAI(dt){
+  const pe=AR.pet,fo=AR.foe;if(fo.cur||fo.q.length||pe.cur||pe.q.length){fo.mv=0;return;}
+  const dx=pe.x-fo.x,dy=pe.y-fo.y,d=Math.hypot(dx,dy*1.5)||1,want=AR.fd;
+  if(d>want+30)arMove(fo,pe.x-dx/d*want,pe.y-dy/d*want*.5,fo.sp,dt);
+  else if(d<42)arMove(fo,fo.x-dx/d*60,fo.y-dy/d*30,fo.sp,dt);else fo.mv=0;
+}
+function arFrame(ts){
+  if(!AR||!AR.on)return;
+  const b=AR.b;if(S.b!==b||!$('arena'))return arStop();
+  const dt=Math.min(.05,Math.max(.001,(ts-AR.last)/1000||.016));AR.last=ts;AR.t+=dt;AR.cd-=dt*1000;
+  const pe=AR.pet,fo=AR.foe,busy=arStep(pe,dt);arStep(fo,dt);
+  if(!b.end){if(!busy)arPetAI(dt);arFoeAI(dt);}
+  else{pe.mv=0;fo.mv=0;if(b.end===1)pe.z=Math.abs(Math.sin(AR.t*6))*12;}
+  [pe,fo].forEach(f=>{
+    f.x+=f.vx*dt;f.y+=f.vy*dt;const k=Math.pow(.02,dt);f.vx*=k;f.vy*=k;
+    f.x=Math.max(f.w/2+2,Math.min(AR.W-f.w/2-2,f.x));f.y=Math.max(f.bh+4,Math.min(AR.H-6,f.y));
+    if(f.trail>0){f.trail-=dt*1000;f.tr-=dt*1000;if(f.tr<=0){f.tr=45;arGhost(f,AR.col);}}
+    const run=f.mv>8,bob=run?Math.abs(Math.sin(AR.t*16))*5:Math.sin(AR.t*3+f.ph)*1.5;
+    f.el.style.left=(f.x-f.w/2)+'px';f.el.style.top=(f.y-f.bh-f.z)+'px';f.el.style.zIndex=Math.round(f.y);
+    f.spr.style.transform='translateY('+(-bob)+'px) rotate('+(f.rot+(run?f.dx*7:0))+'deg) scale('+f.sc+')';
+    f.spr.style.filter=f.glow?'drop-shadow(0 0 9px '+f.glow+') brightness(1.2)':'';
+    if(f.sd){f.sd.style.left=f.x+'px';f.sd.style.top=(f.y-3)+'px';const s=Math.max(.5,1-f.z/160);f.sd.style.width=(f.w*.62*s)+'px';f.sd.style.height=(10*s)+'px';}
+  });
+  for(let i=AR.tw.length-1;i>=0;i--){
+    const w=AR.tw[i];w.t+=dt*1000;const k=Math.min(1,w.t/w.d);
+    w.el.style.left=(w.x0+(w.x1-w.x0)*k)+'px';w.el.style.top=(w.y0+(w.y1-w.y0)*k-Math.sin(Math.PI*k)*w.arc)+'px';
+    if(k>=1){AR.tw.splice(i,1);if(w.cb)w.cb();}
+  }
+  const g=$('arsg');if(g){g.firstChild.style.width=Math.min(100,AR.g)+'%';g.classList.toggle('full',AR.g>=100);}
+  AR.raf=requestAnimationFrame(arFrame);
+}
+function arStop(){if(AR){AR.on=0;try{cancelAnimationFrame(AR.raf);}catch(e){}}AR=null;}
+
+function arInit(){
+  arStop();
+  const b=S.b,c=S.c,ar=$('arena'),fP=$('fP'),fE=$('fE');if(!b||!c||!ar||!fP||!fE||ar.classList.contains('arq'))return;
+  const foe=fE.querySelector('.foe'),L=arLine(c),M=ARL[L],bi=b.xf&&typeof PX==='object'&&PX?(PX.bi|0):0,T=ARBG[bi]||ARBG[0];
+  const f0=b.fo||(typeof FOES!=='undefined'&&FOES[(b.t||1)-1])||['🐾',68],fs=Math.round((f0[1]||68)*.62),boss=!!(b.xf&&b.xf.boss);
+  ar.classList.add('arq');
+  ar.style.background='radial-gradient(ellipse at 50% 58%,'+T[0]+' 0 48%,'+T[1]+' 70%,'+T[2]+' 100%)';
+  ARDECO.forEach(p=>ar.appendChild(arE('arde',T[3+p[2]],{left:p[0]+'%',top:p[1]+'%'})));
+  if(foe)foe.style.fontSize=fs+'px';
+  fP.style.width='76px';const fw=Math.max(76,fs+10);fE.style.width=fw+'px';
+  const hp=fP.querySelector('.hp');if(hp)hp.insertAdjacentHTML('afterend','<div class="arsg" id="arsg" style="--c:'+M.col+'" title="'+M.n+'"><i></i></div>');
+  const W=ar.clientWidth||312,H=250;
+  AR={b,on:1,ln:L,col:M.col,W,H,box:$('fx'),g:0,cd:500,dir:1,per:boss?2300:b.xf?1500:1400,fd:boss?105:88,t:0,last:performance.now(),go:0,tw:[],raf:0,
+    pet:arMk(fP,$('fPs'),W*.22,200,76,98,L==='spd'?170:L==='int'?105:100),
+    foe:arMk(fE,foe,W*.78,178,fw,22+fs,boss?48:68)};
+  [AR.pet,AR.foe].forEach(f=>{f.sd=arE('arsd');ar.appendChild(f.sd);});
+  b.L.unshift(M.ic+' สายนี้ใช้ท่า "'+M.n+'" — '+M.d+' (หลอดเต็มแล้วใช้เอง)');
+  updBattle();
+  AR.raf=requestAnimationFrame(arFrame);
+}
+
+// ---------- ต่อเข้ากับระบบเดิม ----------
+{
+  const _rd=round;round=function(){if(AR&&AR.on&&AR.b===S.b&&!AR.go)return;return _rd.apply(this,arguments);}; // ตัดตัวจับเวลาเดิม สนามคุมจังหวะแทน
+  const _an=anim;anim=function(id,cls,ms){
+    if(!arB())return _an.apply(this,arguments);
+    if(cls==='atkR')return;
+    if(cls==='atkL'){if(id==='fE')arFoeStrike();return;}
+    if(cls==='hit'){if(id==='fP'){AR.g=Math.min(100,AR.g+10);arKnock(AR.pet,AR.foe);}else arKnock(AR.foe,AR.pet,70);}
+    return _an.apply(this,arguments);
+  };
+  const _fx=fx;fx=function(side,txt,cls){if(!arB())return _fx.apply(this,arguments);arNum(side==='e'?AR.foe:AR.pet,txt,cls);};
+  const _ob=openBattle;openBattle=function(){
+    const r=_ob.apply(this,arguments);
+    try{arInit();}catch(e){console.error('arena init',e);arStop();const a=$('arena');if(a){a.classList.remove('arq');a.removeAttribute('style');}['fP','fE'].forEach(i=>{const x=$(i);if(x)x.removeAttribute('style');});}
+    return r;
+  };
+}
+}
