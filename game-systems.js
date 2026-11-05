@@ -525,7 +525,7 @@ const mdFcId=bi=>mdFc().m[bi]||'';
 function mdPick(){const F=mdFc(),id=F.m[PX.bi]||'';F.m[PX.bi]=mdRoll(PX.bi);S.fcLive=1;return DXO.find(o=>o.id===id)||null;}
 const mdOm=()=>{const R=dx().run;return R&&DXO.find(o=>o.id===R.om)||null;};
 const mdEc=()=>{const live=S.depth>0||S.fcLive,o=live?mdOm():DXO.find(x=>x.id===mdFcId(PX.bi));return(o&&o.ec)||0;};
-const mdFs=()=>{const o=mdOm();return(o&&o.fs)||1;},mdF=()=>{const o=mdOm();return o&&o.f?1:0;};
+const mdFs=()=>{const o=mdOm();return((o&&o.fs)||1)*((dx().run&&dx().run.rf)||1)*((dx().run&&dx().run.ra)||1);},mdF=()=>{const o=mdOm();return o&&o.f?1:0;};
 function mdIc(k){const live=S.depth&&S.dBi===k,o=live?mdOm():DXO.find(x=>x.id===mdFcId(k));return o?o.ic:'';}
 function mdCard(){
   const live=S.depth>0,o=live?mdOm():DXO.find(x=>x.id===mdFcId(PX.bi)),B=BIO[PX.bi];
@@ -560,7 +560,9 @@ const bbG=c=>{const A=(c.soul&&c.soul.ax)||{};let k='bold',m=-1;['bold','kind','
 const bbLv=c=>Math.min(5,1+Math.floor((c.mv|0)/4)+(c.stage>=4?1:0)); // ประสบการณ์: ใช้ท่า 4 ครั้ง = +1 · ร่างสูงสุด +1
 function bbSkill(c){const sp=speciesOf(c),g=bbG(c),L=bbLv(c);return{sp,g,L,ic:BBX[sp][1],n:BBX[sp][0]+'·'+BBF[g][0],t:BBT[L-1]};}
 function bbPool(){const c=S.c,D=S.depth,P=[];S.npcs.filter(p=>p.rel==='f').forEach(p=>P.push({p,ic:p.ic,an:p.ic+p.n,al:c.stage*6+D*.5+p.met*2}));S.guests.forEach(g=>P.push({g,ic:'🐾',an:'🐾'+g.n,al:(g.a[0]+g.a[1]*.7+g.a[2]*.5)*.6+D*.3}));const A=cq().ally;if(A)P.push({ic:A.ic,an:A.ic+A.n,al:A.lv*8+c.stage*5+D*.4});return P.sort((a,b)=>b.al-a.al);}
-dxBoss=function(){const id=['forest','sand','frost'][PX.bi],s=DXB.find(b=>b.id===id);if(s&&Math.random()<.75)return s;return pk(DXB.filter(b=>BBOLD.includes(b.id)));};
+dxBoss=function(){const D=S.depth,id=['forest','sand','frost'][PX.bi],s=DXB.find(b=>b.id===id),r=Math.random();
+  if(D>=10&&typeof bsEchoes==='function'){const pm=D>=20?.28:.18,ps=D>=20?.24:.15;if(r<pm&&bsEchoes(1).length)return DXB.find(b=>b.id==='memory');if(r<pm+ps)return DXB.find(b=>b.id==='shadow');}
+  if(s&&Math.random()<.75)return s;return pk(DXB.filter(b=>BBOLD.includes(b.id)));};
 function bbCmd(k){const b=S.b;if(!b||b.end)return;b.cmd=b.cmd===k?null:k;updBattle();}
 function bbRound(){
   const b=S.b,c=S.c,f=b.xf,pat=f.pat,sig=['forest','sand','frost'].includes(pat);if(b.end)return;
@@ -588,6 +590,7 @@ function bbRound(){
     else if(pat==='frost'){if(b.phs===1&&!ign&&cmd!=='all'&&Math.random()<.3){pd=0;L('💨 Frost Beast หลบได้!');}else if(b.phs===2&&!ign)pd=Math.round(pd*.5);else if(b.phs===3&&tg.includes('freeze')&&cmd!=='def'){pd=0;burst=0;L('🥶 '+c.name+'ถูกแช่แข็ง!');}}
     else if(BBOLD.includes(pat))pd=dxPat(b,pd);
   }
+  if(typeof bsOut==='function')pd=bsOut(b,pd,cmd,pat,tg,ign);
   const ad=b.al?Math.round(b.al*.6+rnd(0,3)):0,dealt=pd+ad+burst;b.eh-=dealt;
   anim('fP','atkR',350);setTimeout(()=>{anim('fE','hit',350);fx('e','-'+dealt,cr?'crit':'');},150);L(txt+(pd?' ตี '+pd:'')+(ad?' · '+b.an+'ช่วย '+ad:''));
   if(b.ins){b.tgv=1;}
@@ -601,7 +604,7 @@ function bbRound(){
     if(pat==='forest'&&tg.includes('slam'))m*=2;
     if(pat==='sand'){hits=b.eh<b.em*.4?3:2;ed=Math.round(ed*.55);if(tg.includes('storm'))m*=1.7;b.sp=Math.max(0,b.sp-1);}
     if(pat==='frost'){if(b.phs===1)ed=Math.round(ed*.8);if(b.phs===2&&n%2===0)m*=1.4;}
-    for(let i=0;i<hits;i++){let e=Math.round(ed*m)+(BBOLD.includes(pat)?dxPatE(b,ed):0);if(evade)e=0;if(dxHas('sting')){e=Math.round(e*.5);if(i===0)b.eh-=Math.round(b.em*.06*dxM('sting'));}edT+=e;}
+    for(let i=0;i<hits;i++){let e=Math.round(ed*m)+(BBOLD.includes(pat)?dxPatE(b,ed):0);if(evade)e=0;if(dxHas('sting')){e=Math.round(e*.5);if(i===0)b.eh-=Math.round(b.em*.06*dxM('sting'));}if(typeof bsIn==='function')e=bsIn(b,e,cmd,pat,tg,i,hits);if(typeof bnIn==='function')e=Math.round(e*bnIn(b));edT+=e;}
     b.ph-=edT;setTimeout(()=>anim('fE','atkL',350),450);setTimeout(()=>{anim('fP','hit',350);fx('p','-'+edT,'');},600);
     L(evade?'💨 หลบได้ทุกการโจมตี':(pat==='sand'?`🏜️ Sand Emperor ฟัน ${hits} ครั้ง −${edT}`:'ศัตรูตอบโต้ −'+edT));
     if(pat==='sand'&&!evade){b.ps=Math.min(6,(b.ps|0)+hits);const t=Math.round((1+b.ps*.7)*(1+S.depth*.04));b.ph-=t;L('☠️ พิษ ×'+b.ps+' −'+t);}
@@ -612,7 +615,8 @@ function bbRound(){
   if(pat==='forest'){if(nx%3===0)T.push('open');if(nx%4===0)T.push('slam');}
   else if(pat==='sand'){if(nx%4===0)T.push('storm');}
   else if(pat==='frost'){if(b.phs===2&&nx%2===0)T.push('heavy');if(b.phs===3&&Math.random()<.6)T.push('freeze');}
-  b.tg=T;b.tgv=b.ins||Math.random()<cl(.3+eff(c,'int')*.035,.3,1)?1:0;b.ins=0;
+  if(typeof bsSig==='function')bsSig(b,T,nx,pat);
+  b.tg=T;b.tgv=b.ins||Math.random()<cl(.3+eff(c,'int')*.035+(typeof bnFx==='function'?bnFx().ins:0),.3,1)?1:0;b.ins=0;
   updBattle();
 }
 function bbUI(b){
@@ -1703,4 +1707,617 @@ function msPanel(){
 {
   const _ep=emPanel;emPanel=function(){const r=_ep.apply(this,arguments);let t='';try{t=msPanel();}catch(e){}return r+t;};
 }
+}
+
+
+// ################ route-choice ################
+// ===== route-choice · Phase 2: ทางแยกแบบ "เลือกเส้นทาง" — ทุกทางมีข้อดี/ข้อเสีย/ความเสี่ยงชัดเจน · เป้าหมายทริป · สัตว์มีความเห็น · โหลดหลังสุด =====
+// ทางแยกเดิม (dxFork) เปลี่ยนจาก "เลือกประเภทประตู" เป็น "เลือกเส้นทาง" 5 แบบ ปลายทางของแต่ละทางสุ่มจากน้ำหนักของทางนั้น (ไม่รู้แน่ แต่เดาแนวโน้มได้)
+// ใช้ q.fk (ประเภทห้องปลายทาง) เหมือนเดิม → abDoor / โหมด 🤖 สัตว์เลือกเอง ยังทำงาน
+{
+let ch_manual=false;
+const DXR=[
+ {id:'forest',ic:['🌲','🌴','🌲'],n:['ทางป่า','ทางโอเอซิส','ทางป่าสน'],risk:1,mm:.7,g:['rest','col'],
+  pro:'ปลอดภัย · เก็บสมุนไพรฟื้นพลัง',con:'รางวัลทั่วไป ไม่ค่อยเจอของหายาก',w:{camp:2.4,ev:1.6,shop:.9,fight:.35,trs:.25,sec:.2}},
+ {id:'cave',ic:['🦇','🕳️','🧊'],n:['ทางถ้ำ','ถ้ำใต้ทราย','ถ้ำน้ำแข็ง'],risk:3,mm:1.1,g:['col','money'],
+  pro:'เจอของหายาก · ห้องสมบัติบ่อย',con:'เดินในที่มืดเสียแรง · เสี่ยงเจอศึก',w:{fight:2.1,trs:2,ev:1,camp:.5,shop:.4,sec:.8}},
+ {id:'ruin',ic:['🏛️','🏺','🗿'],n:['ทางโบราณสถาน','ทางสุสานโบราณ','ทางวิหารเก่า'],risk:2,mm:.9,g:['crystal','col'],
+  pro:'เจอความลับ · ผลึก · ของโบราณ',con:'ต้องใช้ปัญญา พลาดแล้วโดนกับดัก',w:{sec:2.6,trs:1.8,ev:1.2,camp:.4,fight:.5,shop:.3}},
+ {id:'danger',ic:['☠️','🌋','🌨️'],n:['ทางอันตราย','ทางลาวาทราย','ทางพายุหิมะ'],risk:5,mm:1.9,g:['money','crystal'],
+  pro:'รางวัลสูงมาก · ผลึกบ่อย (ได้เมื่อรอดศึก)',con:'ศัตรูแข็งแกร่ง +30% · เสียแรงมาก',w:{fight:3.2,trs:1.2,ev:.8,camp:.1,shop:.2,sec:.5}},
+ {id:'short',ic:['🏃','🏃','🏃'],n:['ทางลัด','ทางลัด','ทางลัด'],risk:2,mm:0,g:['rest'],
+  pro:'ข้ามไป 1 ชั้นเลย · ประหยัดแรง',con:'ข้ามห้องตรงนี้ไป · ไม่ได้ของ ไม่ได้ XP',w:{}}
+];
+const RC_GOALS=[['','🧭','ไม่ระบุ'],['money','💰','เงิน'],['crystal','💎','ผลึก'],['col','🏺','ของสะสม'],['rest','🌿','เก็บแรง']];
+const rcName=(r,k)=>(Array.isArray(r[k])?(r[k][PX.bi]||r[k][0]):r[k]);
+const rcGoal=()=>dx().goal||'';
+const rcInt=()=>Math.round(cl(.25+S.c.int*.009-S.depth*.004+(dxHas('mirage')?.12:0),.2,.9)*100);
+const rcState=en=>en<30?'เหนื่อยมาก ⚠️':en<55?'เริ่มล้า':'สดชื่น';
+
+// เลือก 3 ทาง: ต้องมี "ทางสบาย" อย่างน้อย 1 และ "ทางเสี่ยง" อย่างน้อย 1 → ไม่มีทางที่ดีที่สุดเสมอ
+function rcPick(c){
+  const tired=c.en<40,canShort=(S.depth+1)%5!==0&&(S.depth+1)%10!==0;
+  const low=wpick([['forest',tired?3:1.5],...(canShort?[['short',tired?1.2:1]]:[])]);
+  const hi=wpick([['cave',1.2],['danger',S.depth>=2?1:.4]]);
+  const rest=[['ruin',S.depth>=2?1+c.int/60:.15],['forest',.5],['cave',.5],['danger',.4],...(canShort?[['short',.6]]:[])].filter(x=>x[0]!==low&&x[0]!==hi);
+  const th=wpick(rest);
+  return [low,hi,th].sort(()=>Math.random()-.5);
+}
+function rcDoorRoll(r){
+  if(r.id==='short')return 'skip';
+  return wpick(dxTypeW().map(([k,w])=>[k,w*(r.w[k]||.15)]));
+}
+function rcTend(r){
+  const w=dxTypeW().map(([k,v])=>[k,v*(r.w[k]||.15)]).sort((a,b)=>b[1]-a[1]).slice(0,2);
+  return w.map(x=>DXT[x[0]][0]).join('');
+}
+// นิสัย → ทางที่สัตว์ชอบ · ถ้าเหนื่อยก็อยากไปทางสบาย
+function rcLean(q){
+  const c=S.c,ids=q.rt.map(r=>r.id);let want=null,why='';
+  if(c.en<40){want=ids.find(x=>x==='forest')||ids.find(x=>x==='short');why='เหนื่อยแล้ว อยากไปทางสบาย';}
+  if(!want){const P={'ตะกละ':['forest','cave'],'ซน':['cave','danger'],'ขยัน':['ruin','forest'],'ขี้หึง':['danger','ruin']}[c.trait]||[];
+    want=P.find(x=>ids.includes(x));if(want)why='ชอบทางนี้';}
+  const i=ids.indexOf(want);return i>=0?{i,why}:{i:-1,why:''};
+}
+
+dxFork=function(s0,ctx){
+  const c=S.c,R=dx().run,w=DXW.find(x=>x.id===R.wx),fog=((w&&w.f)||mdF())&&!dxHas('mirage');
+  const rt=rcPick(c).map(id=>Object.assign({},DXR.find(r=>r.id===id)));
+  const fr=S.npcs.filter(p=>p.rel==='f');
+  const di=rt.findIndex(r=>r.id==='danger');
+  if(di>=0&&fr.length&&Math.random()<.45){const p=pk(fr);rt[di].resc=p;rt[di].risk=4;rt[di].pro=`${p.ic}${p.n}ติดอยู่ข้างหน้า! ช่วยได้สนิท +4 · รางวัลสูง`;rt[di].con='ศัตรูแข็งแกร่ง +30% · ต้องสู้ (หนี/จ่ายเงิน = ช่วยไม่ได้)';rt[di].w={fight:12};}
+  const fk=rt.map(rcDoorRoll),tend=rt.map(rcTend);if(di>=0&&rt[di].resc)fk[di]='fight';
+  const q={fk,rt,tend,def:0,ctx,s0,fog,L:{o:[]}};const ln=rcLean(q);q.def=Math.max(0,ln.i);q.ln=ln;
+  XQ=q;dxForkUI();
+}
+dxForkUI=function(){
+  const q=XQ,c=S.c;if(!q)return;if(dx().ai){XQ=null;return xResolve(q,null);}
+  const g=rcGoal(),gg=RC_GOALS.find(x=>x[0]===g),R=dx().run;
+  const head=`<div style="font-size:18px;text-align:center"><b>🔀 ทางแยก ชั้น ${S.depth}</b>${q.fog?' 🌫️':''}</div>`+
+   `<div class="log" style="text-align:center;font-size:12px;line-height:1.6">🔋 ${c.name} ${Math.round(c.en)} (${rcState(c.en)}) · เดินชั้นละ −${xCost()}<br>🎯 ตามหา: ${gg&&gg[0]?gg[1]+' '+gg[2]:'ไม่ระบุ'}${q.fog?'<br>🌫️ หมอกหนา มองไม่เห็นรายละเอียดของทาง':''}</div>`;
+  const rows=q.rt.map((r,i)=>{
+    const nm=rcName(r,'n'),ic=rcName(r,'ic'),new_=!dx().seen['rt:'+r.id],match=g&&r.g.includes(g);
+    if(q.fog)return{ic,t:nm+' 🌫️',sub:'ไม่รู้ว่าข้างหน้ามีอะไร…',ch:new_?xCh(['✨ ใหม่']):'',fn:()=>xPick(i)};
+    const rk='💀'.repeat(r.risk)+'▫️'.repeat(5-r.risk),hint=[];
+    if(c.en<40&&r.risk>=3)hint.push('⚠️ พลังต่ำ เสี่ยงสู้ไม่ไหว');
+    if(c.en<40&&r.id==='forest')hint.push('💤 ตอนนี้เหนื่อย ทางนี้ฟื้นแรงได้มากกว่าปกติ');
+    if(r.id==='ruin')hint.push(`🧠 ปัญญา ${Math.round(c.int)} → ถอดกลไกได้ ~${rcInt()}%`);
+    if(r.id==='short')hint.push('คืนแรงครึ่งหนึ่งของค่าเดิน');
+    const chips=[];if(match)chips.push('🎯 ตรงเป้าหมาย');if(new_)chips.push('✨ ใหม่');if(R.last===r.id)chips.push('🔁 ทางเดิม ของน้อยลง');
+    if(q.ln.i===i)chips.push('💬 '+c.name+q.ln.why);
+    chips.push(dxHas('mirage')&&q.fk[i]!=='skip'?`🔮 ปลายทาง ${DXT[q.fk[i]][0]}`:(r.id==='short'?'ข้ามห้อง':'มักพบ '+q.tend[i]));
+    return{ic,t:`${nm} <small>${rk}</small>`,sub:`✅ ${r.pro}<br>⚠️ ${r.con}${hint.length?'<br>'+hint.join(' · '):''}`,ch:xCh(chips),fn:()=>xPick(i)};
+  });
+  xMsg(head+xRows(rows));xStat();xBagUI();
+}
+
+// ผลของทางที่เลือก (ก่อนเข้าห้องปลายทาง)
+function rcApply(q,i){
+  const c=S.c,R=dx().run,D=dx(),r=q.rt[i],B=BIO[PX.bi],g=rcGoal(),match=!!g&&r.g.includes(g);
+  let mult=1;q._rep=R.last===r.id;if(q._rep){mult=.75;dxPre+='🔁 ทางเดิมที่เพิ่งผ่านมา ของที่พบน้อยลง<br>';}R.last=r.id;
+  if(match){R.gm=(R.gm|0)+1;mult*=1.3;dxPre+='🎯 ตรงกับสิ่งที่ตามหา! ของดีขึ้น<br>';}
+  dxSee('rt:'+r.id);
+  const hm=match&&g==='rest'?1.3:1,base=Math.round((14+c.stage*6)*B.lm*(1+S.depth*.06)*dxLM()*mult),nm=rcName(r,'n'),t=q.fk[i],gm=match?.1:0;
+  dxPre+=`${rcName(r,'ic')} เลือก${r.resc?'ไปช่วย'+r.resc.n:nm}<br>`;
+  const col=(src,p)=>{if(Math.random()<p*mult){const x=dxCol(src);if(x)dxPre+='🏺 เจอของสะสม'+x+'<br>';}};
+  if(r.id==='forest'){
+    const h=Math.round((c.en<40?12:6)*hm);c.en=cl(c.en+h);S.money+=Math.round(base*r.mm);dxPre+=`🌿 เก็บสมุนไพรกินระหว่างทาง 🔋+${h}<br>`;
+    if(Math.random()<.35&&bagAdd('rice'))dxPre+='🍙 เก็บสมุนไพรไปทำข้าวปั้นได้ 1 ห่อ<br>';col('w',.3+gm);
+  }else if(r.id==='cave'){
+    c.en=cl(c.en-3);S.money+=Math.round(base*r.mm);dxPre+='🔦 เดินในที่มืด 🔋−3<br>';col('t',.4+gm);
+    if(Math.random()<.35*mult){const it=giveItem();if(it)dxPre+='📦 เจอของแปลกๆ'+it+'<br>';}
+  }else if(r.id==='ruin'){
+    const p=rcInt()/100;
+    if(Math.random()<p){S.money+=Math.round(base*r.mm*1.3);dxPre+=`🧠 ${c.name}ถอดกลไกโบราณได้!<br>`;
+      if(Math.random()<.3+gm){S.crystal++;dxPre+='💎 ได้ผลึกจากซากโบราณ +1<br>';}col('t',.35+gm);}
+    else{c.en=cl(c.en-6);S.money+=Math.round(base*r.mm*.3);dxPre+='🪤 พลาดกับดัก! 🔋−6 ได้ของน้อยนิด<br>';}
+  }else if(r.id==='danger'){
+    c.en=cl(c.en-5);dxPre+='🔥 ทางนี้กินแรงมาก 🔋−5<br>';
+    const pend={m:Math.round(base*r.mm),cr:Math.random()<.4+gm,resc:r.resc?r.resc.n:''};
+    if(t==='fight'){R.pend=pend;R.rf=1.3;dxPre+='👹 ศัตรูแข็งแกร่งกว่าปกติ… ชนะแล้วรางวัลจะก้อนโต<br>';}
+    else{S.money+=Math.round(pend.m*.7);if(pend.cr&&Math.random()<.5){S.crystal++;dxPre+='💎 เจอผลึกริมทาง +1<br>';}dxPre+='😮‍💨 โชคดี ทางอันตรายนี้ไม่มีศัตรูขวาง<br>';}
+    if(r.resc){R.resc=r.resc.n;if(t!=='fight'){r.resc.met++;c.bond=cl(c.bond+2);dxPre+=`${r.resc.ic}${r.resc.n}ปลอดภัยดี ขอบคุณที่มาช่วย 💚<br>`;}}
+  }
+  if(q.ln&&q.ln.i===i&&ch_manual){c.bond=cl(c.bond+1);dxPre+=`💞 ${c.name}ดีใจที่ได้ไปทางที่อยากไป<br>`;}
+}
+function rcShort(q){
+  const c=S.c,g=rcGoal();
+  S.depth++;S.bestD=Math.max(S.bestD||0,S.depth);const back=Math.round(xCost()*(q._rep?.25:.5)*(g==='rest'?1.3:1));c.en=cl(c.en+back);
+  let t=`🏃 ทางลัด! ข้ามไปอีก 1 ชั้น (ตอนนี้ชั้น ${S.depth}) · 🔋+${back}`;
+  if(Math.random()<.35)t+='<br>👂 ได้ยินเสียงหีบเปิดจากห้องที่ข้ามมา… น่าเสียดายจัง';
+  xMsg(xOut(t,xChips(q.s0),'🏃'));xAfter();
+}
+{
+  const _d=dxDoor;
+  dxDoor=function(q,ch){
+    if(!q||!q.rt)return _d.apply(this,arguments);
+    ch_manual=ch!=null;
+    if(ch==null){
+      let b=q.def;try{if(S.c&&S.c.soul&&typeof abDoor==='function')b=abDoor(q);}catch(e){}
+      ch=b;dxPre+=`⏳ ${S.c.name}เลือกเอง<br>`;
+    }
+    const r=q.rt[ch];rcApply(q,ch);
+    if(r.id==='short')return rcShort(q);
+    return _d.call(this,q,ch);
+  };
+}
+// ช่วยเพื่อน/รับรางวัลทางอันตราย เมื่อชนะศึก
+{
+  const _fe=xFightEnd;
+  xFightEnd=function(w,b){
+    const r=_fe.apply(this,arguments);
+    try{const R=dx().run,c=S.c;
+      if(w&&R.pend){const p=R.pend;S.money+=p.m;dxPre+=`💰 รางวัลทางอันตราย +฿${p.m}<br>`;if(p.cr){S.crystal++;dxPre+='💎 ผลึกจากทางอันตราย +1<br>';}
+        if(p.resc){const f=S.npcs.find(x=>x.n===p.resc);if(f){f.met++;dxPre+=`${f.ic}${f.n}รอดแล้ว! ขอบคุณมาก 💚 สนิท +4<br>`;recordMemory('bond','ช่วย'+f.n+'ไว้ได้','ฝ่าทางอันตรายไปช่วยเพื่อน');}c.bond=cl(c.bond+4);}
+        gainXp(10);}
+      R.pend=null;R.rf=0;R.resc='';
+    }catch(e){}
+    return r;
+  };
+  const _g2=xGo;xGo=function(){try{const R=dx().run;if(R){R.pend=null;R.rf=0;R.resc='';}}catch(e){}return _g2.apply(this,arguments);};
+  const _b=xBack;xBack=function(){
+    try{if(!XQ&&S.depth>0){const R=dx().run,g=rcGoal();if(g&&(R.gm|0)>=2){const b=R.gm*40;S.money+=b;dxPre+=`🎯 ทริปนี้ตามหา ${RC_GOALS.find(x=>x[0]===g)[1]} ได้ตรงเป้า ${R.gm} ครั้ง · โบนัส ฿${b}<br>`;}}}catch(e){}
+    return _b.apply(this,arguments);
+  };
+}
+// เลือกเป้าหมายทริปที่ค่าย
+const rcSetGoal=id=>{dx().goal=id;saveGame();rcGoalUI(1);};window.rcSetGoal=rcSetGoal;
+function rcGoalUI(re){
+  const x=$('xRes');if(!x)return;let e=$('rcGoal');if(e&&!re)return;
+  const g=rcGoal(),inTrip=S.depth>0;
+  const h=`<div id="rcGoal" class="log" style="text-align:left;padding:6px"><b>🎯 ตามหาอะไรในทริปนี้?</b> <small>(ทางที่ตรงเป้าหมายได้ของดีขึ้น 30% · ถ้าตรง 2 ครั้ง+ มีโบนัสตอนกลับค่าย)</small><div class="g" style="grid-template-columns:repeat(5,1fr);margin-top:4px">${RC_GOALS.map(o=>`<button class="btn ${g===o[0]?'on':''}" style="padding:4px 0;font-size:11px" ${inTrip?'disabled':''} onclick="rcSetGoal('${o[0]}')">${o[1]}<br>${o[2]}</button>`).join('')}</div>${inTrip?'<small>เปลี่ยนไม่ได้ระหว่างทริป</small>':''}</div>`;
+  if(e)e.outerHTML=h;else x.insertAdjacentHTML('beforebegin',h);
+}
+{const _o=openExp;openExp=function(){const r=_o.apply(this,arguments);try{rcGoalUI();}catch(e){}return r;};}
+}
+
+// ################ world-memory ################
+// ===== world-memory · Phase 2 #5: เหตุการณ์ที่มีผลต่อเนื่อง — "โลกจดจำสิ่งที่เราทำ" · โหลดหลังสุด =====
+// ต่อยอดจากของเดิม (ctStory สัตว์หลงทาง · cq-events · เพื่อน NPC) ไม่สร้างระบบซ้ำ: เก็บใน S.rp
+//   deeds=สิ่งที่เคยทำ · rep=ชื่อเสียง(−5..5) · th=เรื่องที่รอผลตามมา{id:{st,due}} · cam=สัตว์ที่อาจกลับมาโผล่ · q=ภารกิจจาก NPC · mer=จำนวนครั้งที่ซื้อของพ่อค้า
+// สัตว์หลงทาง → 🤝ช่วยเอง (ของขวัญ+ความทรงจำพิเศษ+กลับมาช่วย) · 🚶เดินผ่าน (รู้สึกผิดถ้าใจดี / ถูกมองด้วยความไม่ไว้ใจ) · 🏡พาไปส่งเพื่อน (NPC สนิทขึ้น+ภารกิจใหม่)
+// ถ้ำต้องสาป/สะพานเก่า → ทางที่เลือกส่งผลในทริปถัดไป · พ่อค้า → ซื้อบ่อยกลายเป็นลูกค้าประจำ
+{
+const rp=()=>{const R=S.rp||(S.rp={});R.deeds=R.deeds||[];R.cam=R.cam||[];R.th=R.th||{};R.rep|=0;R.mer|=0;return R;};
+const kindOf=()=>{const so=S.c&&S.c.soul;return so?so.ax.kind:0;};
+const mem=(k,t,w,ic,rx)=>{try{soulMem(k,t,w,ic,rx);}catch(e){}};
+function wmDeed(k,t,rep){const R=rp();R.deeds.unshift({k,t,day:S.day});R.deeds=R.deeds.slice(0,20);R.rep=cl((R.rep||0)+(rep||0),-5,5);}
+const wmStart=(id,st,d)=>{rp().th[id]={st,due:S.day+(d||ri(2,4))};};
+const CUB=[['ปุยนุ่น','🐣'],['ถั่วดำ','🐿️'],['ข้าวตัง','🦔'],['ลูกเกด','🐹'],['มะลิ','🐰']];
+function wmCub(role,extra){const R=rp(),used=R.cam.map(x=>x.n),f=CUB.filter(x=>!used.includes(x[0])),x=pk(f.length?f:CUB);
+  const c=Object.assign({n:x[0],ic:x[1],role,u:0,day:S.day},extra||{});R.cam.push(c);return c;}
+function wmFriend(){const fr=S.npcs.filter(p=>p.rel==='f'),p=fr.length&&Math.random()<.7?pk(fr):newNpc('f');if(fr.includes(p))p.met++;blTouch(p.n,p.ic,'help');return p;}
+const npcByName=n=>S.npcs.find(p=>p.n===n)||{n,ic:'🐾'};
+
+// ----- จุดเริ่ม: บันทึกการตัดสินใจ (ห่อ ctStoryResolve ซึ่งถูกเรียกหลังรู้ตัวเลือกจริง ไม่ว่าสัตว์เลือกเองหรือเรา) -----
+{
+  const _r=ctStoryResolve;
+  ctStoryResolve=function(q,pick){try{wmResolve(q,pick);}catch(e){}return _r.apply(this,arguments);};
+}
+function wmResolve(q,pick){
+  const c=S.c,n=c.name,R=rp();
+  if(q.ctStory==='lost'&&q.ctStage===0){
+    if(pick===2){ // เดินผ่าน
+      wmStart('lost','pass');wmDeed('pass','เดินผ่านสัตว์ตัวเล็กที่หลงทาง',-1);
+      if(kindOf()>15){dxPre+=`😔 ${n}หันกลับไปมองอยู่หลายครั้ง…<br>`;mem('regret','เดินผ่านสัตว์ตัวเล็กที่ร้องไห้ ทั้งที่ใจอยากช่วย',3,'😔','sad');}
+      else mem('pass','เห็นสัตว์ตัวเล็กหลงทางแต่เดินต่อไป',2,'🚶',null);
+    }else if(pick===3){ // พาไปส่งเพื่อน
+      const p=wmFriend(),cub=wmCub('escort',{npc:p.n});q.ctx.p=p.ic+p.n;
+      wmDeed('escort',`พา ${cub.ic}${cub.n} ไปส่งถึงมือ ${p.n}`,1);recordMemory('rescue','พาสัตว์หลงทางไปส่งถึงมือเพื่อน',p.n);
+      mem('escort',`พา ${cub.ic}${cub.n} ไปส่งถึงมือ ${p.ic}${p.n} ความผูกพันกับ ${p.n}ลึกขึ้น`,4,'🏡','help');
+      dxPre+=`💞 ความสัมพันธ์กับ ${p.ic}${p.n}ดีขึ้น<br>`;
+      if(!R.q&&Math.random()<.65){R.q={n:p.n,ic:p.ic,cub:cub.n,g:Math.max(5,S.depth+3)};
+        dxPre+=`📜 ${p.n}ขอร้อง: “ช่วยไปเก็บสมุนไพรหายากที่ชั้น ${R.q.g} ให้หน่อยได้ไหม?” (ภารกิจใหม่)<br>`;}
+    }else{ // ช่วยเอง / แบ่งอาหาร
+      const cub=wmCub('help');wmDeed('help',`ช่วย ${cub.ic}${cub.n} ที่หลงทาง`,1);
+      mem('help',`ช่วย ${cub.ic}${cub.n} ลูกสัตว์ที่หลงทางไว้ — ไม่มีวันลืมแววตาตอนนั้น`,4,'🍼','help');
+      if(Math.random()<.55)dxPre+=`🎁 ${cub.ic}${cub.n}ทิ้งของขวัญชิ้นเล็กไว้ให้${giveItem()}<br>`;
+    }
+  }
+  const L=q.L,o=L&&L.o&&L.o[pick];
+  if(L&&L.rpT&&o&&o.rp){wmStart(L.rpT,o.rp);wmDeed(L.rpT+':'+o.rp,L.ti+' → '+o.l.replace(/^[^\s]+\s/,''),0);}
+}
+
+// ----- เหตุการณ์ผลสืบเนื่อง (รูปแบบเดียวกับ cq-events: {ti,q,o:[{l,fn}]}) -----
+function wmEv(kind,x){
+  const c=S.c,n=c.name,Q=cq(),R=rp(),k=cqK(),fin=id=>{delete R.th[id];};
+  if(kind==='lost'){ // ผลของการเดินผ่าน
+    if(kindOf()>15)return{ti:'ความรู้สึกผิด',q:`😔 ${n}หยุดเดินกลางทาง… เสียงร้องไห้เบาๆ ของสัตว์ตัวนั้นยังก้องอยู่ในหัว`,o:[
+      {l:'🔙 ย้อนกลับไปตามหา (พลัง −8)',n:'f',fn:()=>{cE(-8);fin('lost');if(Math.random()<.6){const b=wmCub('help');S.ctStory.lost=1;cB(4);wmDeed('redeem',`ย้อนกลับไปช่วย ${b.ic}${b.n} จนได้`,2);mem('redeem',`ย้อนกลับไปตามหา ${b.ic}${b.n} จนเจอ ชดเชยที่เคยเดินผ่าน`,4,'🌤️','help');return `${n}ย้อนกลับไปจนเจอ ${b.ic}${b.n} ที่รอดมาได้อย่างหวุดหวิด! มันซุกเข้าหาอ้อมอกทันที 💗 (สนิท +4)`;}wmDeed('late','ตามหาสัตว์ที่เคยเดินผ่านแต่ไม่พบ',0);soulShift({kind:2});return `${n}ตามหาจนทั่วแต่ไม่พบ… ครั้งหน้าจะไม่เดินผ่านอีก (ใจดีขึ้น)`;}},
+      {l:'🌬️ สูดหายใจ เดินต่อ',fl:1,fn:()=>{fin('lost');cB(-1);soulShift({kind:-2});mem('guilt','ความรู้สึกผิดที่ไม่ได้ช่วย ยังติดอยู่ในใจ',3,'🌫️','sad');return `${n}กัดฟันเดินต่อ… แต่ก้าวเท้าหนักกว่าเดิม`;}}]};
+    return{ti:'สายตาที่ไม่ไว้ใจ',q:`👀 สัตว์ตัวเล็กที่เคยถูกเดินผ่านโผล่มาอีกครั้ง… ยืนห่างๆ จ้อง${n}ด้วยสายตาระแวง`,o:[
+      {l:'🍖 ยื่นอาหารขอคืนดี (อิ่ม −10)',n:'f',u:-10,fn:()=>{c.hun=cl(c.hun-10);fin('lost');S.ctStory.lost=1;cB(2);wmDeed('mend','ง้อสัตว์ที่เคยเดินผ่านจนกลับมาเป็นมิตร',1);return 'มันค่อยๆ ก้าวเข้ามากินอาหาร… ความไม่ไว้ใจจางลง อาจได้เจอกันอีก 🐾';}},
+      {l:'🙈 ไม่สนใจ',fl:1,fn:()=>{fin('lost');cB(-2);soulShift({kind:-2});wmDeed('cold','เมินสัตว์ที่เคยถูกเดินผ่านซ้ำอีกครั้ง',-1);return 'มันหันหลังเดินหายไป… เรื่องนี้จบลงแบบเย็นชา 🍂';}}]};
+  }
+  if(kind==='cam'){ // สัตว์ที่เคยช่วย/ส่งกลับมาโผล่
+    const m=x,sh=()=>{m.u++;if(m.u>=2)R.cam=R.cam.filter(z=>z!==m);};
+    if(m.role==='escort'){const p=npcByName(m.npc);return{ti:'ฝากความขอบคุณ',q:`${m.ic} ${m.n}วิ่งมาหา${n}พร้อมของฝากจาก ${p.ic}${p.n} “ท่านฝากบอกว่าขอบคุณอีกครั้ง”`,o:[
+      {l:'🎁 รับของฝาก',it:1,b:2,fn:()=>{sh();cB(2);return `${m.n}ยื่นห่อเล็กๆ ให้${giveItem()}`;}},
+      {l:`💌 ฝากข้อความถึง ${p.n}`,n:'f',b:3,fn:()=>{sh();blTouch(p.n,p.ic,'visit');cB(2);return `${m.n}รับปากว่าจะบอกให้ครบ แล้ววิ่งกลับไปอย่างมีความสุข · ความสัมพันธ์กับ ${p.n}ดีขึ้น`;}}]};}
+    return{ti:'ผู้ที่เคยช่วยกลับมาช่วย',q:`${m.ic} ${m.n}ที่เคยช่วยไว้โผล่ออกมาจากพุ่มไม้ ตัวโตขึ้นเยอะ… ท่าทางตั้งใจจะตอบแทน!`,o:[
+      {l:'🗺️ ให้มันนำทางไปที่ลับ',it:1,g:.3,fn:()=>{sh();const g=Math.round(220*k);S.money+=g;let t=`${m.n}พาไปยังซอกหินที่มีของซ่อนอยู่! +฿${g}`;if(Math.random()<.35){S.crystal++;t+=' · 💎+1';}return t+dxCol('s')+giveItem();}},
+      {l:'🛡️ ให้คอยช่วยตอนสู้',b:2,fn:()=>{sh();dx().run.ra=.8;cB(2);return `${m.n}สัญญาว่าจะกระโดดเข้าขัดขวางศัตรูตัวต่อไป (ศัตรูอ่อนลง 20%)`;}},
+      ...(!Q.ally?[{l:'🐾 ชวนไปผจญภัยด้วยกัน',n:'f',b:4,fn:()=>{R.cam=R.cam.filter(z=>z!==m);Q.ally={n:m.n,ic:m.ic,lv:2,h:0};cB(4);wmDeed('ally',`${m.ic}${m.n}ตกลงเป็นเพื่อนร่วมทาง`,1);return `${m.ic}${m.n}ตกลงเป็นเพื่อนร่วมศึกของ${n}! (ช่วยในศึกบอส)`;}}]:[])]};
+  }
+  if(kind==='quest'){const Z=R.q;return{ti:'ภารกิจของ '+Z.n,q:`📜 ${n}มาถึงชั้น ${S.depth} ตามที่ ${Z.ic}${Z.n}ขอร้องไว้ — สมุนไพรหายากขึ้นอยู่ริมผา แต่กลิ่นของมันดึงดูดสัตว์ดุร้าย…`,o:[
+      {l:'💪 ฝ่าไปเก็บ (แรง)',c:'str',fn:()=>wmQ(cqCk('str'))},{l:'🧠 หาทางเก็บเงียบๆ (ปัญญา)',c:'int',fn:()=>wmQ(cqCk('int'))},
+      {l:'🔙 ทิ้งไว้ก่อน (เก็บภารกิจไว้)',fl:1,fn:()=>{Z.g=S.depth+2;return `${n}ตัดสินใจรอจังหวะที่ดีกว่า (ภารกิจยังไม่หมดอายุ)`;}}]};}
+  if(kind==='cav:enter')return{ti:'สิ่งที่ตามออกมาจากถ้ำ',q:`🌑 ${n}ได้ยินเสียงกระซิบเดิมจากถ้ำมืด… คราวนี้มันตามมาติดๆ พร้อมเงาบางๆ ข้างหลัง`,o:[
+    {l:'🕯️ จุดไฟขับไล่ (−฿50)',m:-50,fn:()=>{fin('cav');if(S.money<50)return 'เงินไม่พอซื้อน้ำมัน… เงาตามมาหลอกหลอนอยู่พักหนึ่ง (พลัง −5)'+(cE(-5),'');S.money-=50;cB(1);wmDeed('lit','จุดไฟขับเงาจากถ้ำต้องสาป',0);return 'แสงไฟทำให้เงาสลายไป ถ้ำสงบลงแล้ว';}},
+    {l:'🗣️ ฟังว่ามันพูดอะไร (เสี่ยง)',c:'?',g:.4,fn:()=>{fin('cav');if(Math.random()<.5){S.crystal++;recordMemory('secret','เงาในถ้ำเล่าที่ซ่อนสมบัติ','');wmDeed('cave-secret','ฟังเสียงเงาจนรู้ที่ซ่อนผลึก',0);return `เงาเล่าถึงที่ซ่อนสมบัติเก่าแก่ให้${n}ฟัง 💎+1`+dxCol('s');}Q.curse=S.day+3;wmDeed('cave-curse','ติดคำสาปจากถ้ำ',0);return '☠️ เสียงนั้นหัวเราะลั่น! คำสาปติดตัวมา 3 วัน (ทุกวันพลัง −5)';}}]};
+  if(kind==='cav:skip')return{ti:'ถ้ำเดิมเปิดทางอีกครั้ง',q:`🕳️ ${n}กลับมาที่ถ้ำที่เคยเลือกไม่เข้า… เสียงข้างในเงียบลงแล้ว มีเครื่องมือของนักสำรวจเก่าทิ้งไว้ที่ปากถ้ำ`,o:[
+    {l:'🔦 เข้าสำรวจอย่างระมัดระวัง',it:1,fn:()=>{fin('cav');const g=Math.round(240*k);S.money+=g;wmDeed('cave-safe','รอจังหวะแล้วสำรวจถ้ำได้อย่างปลอดภัย',0);return `ความระมัดระวังได้ผล! ไม่มีคำสาป ${n}พบหีบเก่า +฿${g}`+dxCol('t')+giveItem();}},
+    {l:'🚶 ปล่อยไว้ตามนั้น',fl:1,fn:()=>{fin('cav');return `${n}มองถ้ำอีกครั้งแล้วเดินต่อ`;}}]};
+  if(kind==='cav:shout')return{ti:'เสียงตอบรับจากถ้ำ',q:`📣 เสียงที่เคยตะโกนตอบกลับ… วันนี้มันเรียกชื่อ${n}ก่อน อย่างเป็นมิตร`,o:[
+    {l:'🤝 ตอบกลับ',n:'f',b:2,fn:()=>{fin('cav');const p=newNpc('f');blTouch(p.n,p.ic,'help');wmDeed('cave-friend',`ผูกมิตรกับ ${p.n} จากถ้ำ`,1);return `${p.ic}${p.n}ผู้อาศัยในถ้ำออกมาทักทาย! ยื่นของที่เก็บได้ให้`+giveItem();}},
+    {l:'🛑 ไม่ตอบ',fl:1,fn:()=>{fin('cav');return 'เสียงนั้นเงียบลงช้าๆ… ไม่มีอะไรเกิดขึ้นอีก';}}]};
+  if(kind==='brg:cross')return{ti:'สะพานที่ขาดไปแล้ว',q:`🌉 ${n}กลับมาที่สะพานเชือกเก่า… มันขาดไปแล้ว! คงเพราะตอนนั้นข้ามแรงไป นักเดินทางตัวหนึ่งติดอยู่อีกฝั่ง`,o:[
+    {l:'🪢 ช่วยซ่อมสะพาน (−฿80 · พลัง −8)',n:'f',m:-80,e:-8,fn:()=>{if(S.money<80)return 'เงินไม่พอซื้อเชือก… ได้แต่โบกมือให้อีกฝั่ง (ยังซ่อมได้ภายหลัง)';fin('brg');S.money-=80;cE(-8);const p=wmFriend();cB(3);wmDeed('mend-bridge','ซ่อมสะพานที่ตัวเองเคยทำพัง',2);recordMemory('rescue','ซ่อมสะพานช่วยนักเดินทาง',p.n);mem('mend','ซ่อมสะพานที่เคยข้ามพัง จนนักเดินทางข้ามมาได้',4,'🪢','help');return `ซ่อมเสร็จ! ${p.ic}${p.n}ข้ามมาขอบคุณ แล้วแบ่งของให้`+giveItem();}},
+    {l:'🚶 ปล่อยเขาไป',fl:1,fn:()=>{fin('brg');cB(-1);wmDeed('ignore-bridge','ทิ้งนักเดินทางไว้ที่สะพานพัง',-1);return `${n}เดินจากไป ทิ้งเสียงตะโกนขอความช่วยเหลือไว้เบื้องหลัง…`;}}]};
+  if(kind==='brg:detour')return{ti:'ของที่ซ่อนข้างทางอ้อม',q:`🌿 ${n}กลับมาเดินทางอ้อมเส้นเดิมที่คุ้นเคย… และสังเกตเห็นบางอย่างที่ครั้งก่อนมองข้ามไป`,o:[
+    {l:'🔍 ค้นดู',it:1,fn:()=>{fin('brg');const g=Math.round(150*k);S.money+=g;return `เจอของที่คนเดินทางเก่าซ่อนไว้ +฿${g}`+dxCol('w')+giveItem();}},{l:'🚶 เดินต่อ',fl:1,fn:()=>{fin('brg');return 'ไม่มีอะไรเกิดขึ้น';}}]};
+  if(kind==='brg:sneak')return{ti:'ผู้เฝ้าสะพานจำได้',q:`🌉 ผู้เฝ้าสะพานเก่าจำ${n}ได้ “เจ้าตัวที่ย่องข้ามทีละแผ่นไม้ใช่ไหม? ใจเย็นดี ข้าชอบ”`,o:[
+    {l:'🔮 รับลูกแก้วลองใหม่',fn:()=>{fin('brg');S.items.retry=(S.items.retry||0)+1;cB(2);wmDeed('keeper','ผู้เฝ้าสะพานชมความใจเย็น',1);return 'ผู้เฝ้ายื่นลูกแก้วใบเล็กให้ 🔮 (ใช้ลองใหม่เมื่อทดสอบพลาด)';}},{l:'🙏 ขอบคุณเฉยๆ',b:1,fn:()=>{fin('brg');cB(2);return 'ผู้เฝ้าพยักหน้าอย่างพอใจ';}}]};
+  return null;
+}
+function wmQ(ok){
+  const c=S.c,R=rp(),Z=R.q,k=cqK();delete R.q;const p=npcByName(Z.n);
+  if(!ok){S.money+=Math.round(60*k);cB(1);blTouch(Z.n,Z.ic,'visit');return `สมุนไพรเสียหายไปครึ่งหนึ่ง แต่พอเอากลับไปให้ ${Z.ic}${Z.n}ได้บ้าง +฿${Math.round(60*k)}`+cqHurt();}
+  const g=Math.round(260*k);S.money+=g;S.crystal++;dx().inv.key=(dx().inv.key||0)+1;cB(4);blTouch(Z.n,Z.ic,'help');
+  wmDeed('quest',`เก็บสมุนไพรหายากให้ ${Z.n}สำเร็จ`,2);recordMemory('bond','ภารกิจสมุนไพรของ '+Z.n,Z.cub+' ติดตามมาด้วย');mem('quest',`ทำตามสัญญากับ ${Z.ic}${Z.n} สำเร็จ`,4,'📜','help');
+  let t=`✨ ${c.name}เก็บสมุนไพรหายากได้ครบ! +฿${g} · 💎+1 · 🗝️กุญแจ+1`;
+  if(!cq().ally){cq().ally={n:Z.cub,ic:'🐾',lv:2,h:0};t+=` · ${Z.cub}ที่เติบโตแล้วขอร่วมทีมเป็นเพื่อนร่วมศึก!`;}else t+=`  · ${Z.ic}${Z.n}ฝากของขอบคุณมาให้`+giveItem(true);
+  return t;
+}
+
+// ----- ตัวจุดชนวน: อยู่หน้า cqExp ในลำดับของ xGo -----
+function wmExp(ctx,s0){
+  const Q=cq(),R=rp();if(Q.last===S.depth||!S.c)return false;let L=null,tag='rp';
+  const q=R.q;
+  if(q&&S.depth>=q.g&&Math.random()<.8){L=wmEv('quest');tag='rpq';}
+  if(!L){const due=Object.entries(R.th).filter(([id,t])=>S.day>=t.due&&!(id==='lost'&&!S.c.soul&&false));
+    if(due.length&&Math.random()<(R.rep>=2?.7:.55)){const [id,t]=due[0];L=wmEv(id==='lost'?'lost':id+':'+t.st);if(!L)delete R.th[id];}}
+  if(!L&&R.cam.length&&S.depth>=2&&Math.random()<(R.rep>=2?.12:R.rep<=-2?.03:.06)){L=wmEv('cam',pk(R.cam));}
+  if(!L)return false;Q.last=S.depth;XQ={L,ctx,s0,cq:tag};xAsk();return true;
+}
+{
+  const _c=cqExp;cqExp=function(ctx,s0){try{if(wmExp(ctx,s0))return true;}catch(e){}return _c.apply(this,arguments);};
+  const _f=xFightEnd;xFightEnd=function(w,b){const r=_f.apply(this,arguments);try{const R=dx().run;if(R)R.ra=0;}catch(e){}return r;};
+  const _g=xGo;xGo=function(){
+    try{if(!S.depth&&!xWhy()){const R=rp(),a=R.rep>=2?'📣 ข่าวลือในป่า: มีสัตว์ใจดีที่ชอบช่วยเหลือผู้อื่น… ผู้คนจดจำน้ำใจของคุณ<br>':R.rep<=-2?'😒 มีเสียงซุบซิบในป่าว่าคุณเดินผ่านคนเดือดร้อนบ่อยๆ…<br>':'';
+      if(a)dxPre+=a;if(R.q)dxPre+=`📜 ภารกิจของ ${R.q.ic}${R.q.n}: ลงให้ถึงชั้น ${R.q.g}<br>`;}}catch(e){}
+    return _g.apply(this,arguments);};
+  // ลูกค้าประจำ: ซื้อบ่อยแล้วพ่อค้าจำได้
+  const _b=dxBuy;dxBuy=function(i){const m0=S.money;const r=_b.apply(this,arguments);try{if(S.money<m0)rp().mer++;}catch(e){}return r;};
+  const _s=dxShopUI;dxShopUI=function(){
+    try{const q=XQ,R=rp();if(q&&q.shop&&!q._wm){q._wm=1;
+      if(R.mer>=3){q.shop.forEach(o=>{if(!o.sold)o.p=Math.round(o.p*.85);});q.msg=(q.msg?q.msg+' ':'')+'🤝 พ่อค้าจำหน้าได้! ลดให้ 15%';}
+      if(R.mer>=6)q.shop.push({ic:'🗝️',n:'กุญแจพิเศษ (เฉพาะลูกค้าประจำ)',p:140,t:'key',id:'key'});}}catch(e){}
+    return _s.apply(this,arguments);};
+  // บันทึก "เรื่องที่โลกจดจำ" ต่อท้ายสมุดเรื่องที่ค้างอยู่
+  const _cs=cqSummary;cqSummary=function(){
+    const base=_cs.apply(this,arguments);let r=[];try{const R=rp();
+      if(R.q)r.push(`📜 ภารกิจของ ${R.q.ic}${R.q.n}: ลงให้ถึงชั้น ${R.q.g}`);
+      R.cam.forEach(m=>r.push(`${m.ic} ${m.n} ${m.role==='escort'?'(ลูกสัตว์ที่ส่งถึงมือเพื่อน)':'(ลูกสัตว์ที่ช่วยไว้)'} อาจกลับมาโผล่`));
+      if(R.th.lost)r.push(R.th.lost.st==='pass'?'🌫️ สัตว์ตัวเล็กที่เคยเดินผ่าน…ยังอยู่ในความทรงจำ':'');
+      if(R.th.cav)r.push('🕳️ ถ้ำต้องสาปยังไม่จบเรื่อง');if(R.th.brg)r.push('🌉 สะพานเก่ายังมีเรื่องค้างอยู่');
+      if(R.mer>=3)r.push('🤝 พ่อค้าเร่จำคุณได้ (ลูกค้าประจำ)');
+      const rl=R.rep>=3?'😇 ชื่อเสียงใจดี':R.rep>=1?'🙂 มีน้ำใจ':R.rep<=-3?'😒 ใจแข็ง':R.rep<=-1?'😐 ชักไม่น่าไว้ใจ':'';if(rl)r.push(rl);
+      R.deeds.slice(0,3).forEach(d=>r.push('· '+d.t));}catch(e){}
+    r=r.filter(Boolean);return base+(r.length?`<div class="discovery"><b>🌍 สิ่งที่โลกจดจำ</b><br>${r.join('<br>')}</div>`:'');};
+}
+// ติดป้ายให้เหตุการณ์เดิมที่มีผลต่อเนื่อง
+[['วันที่เจอถ้ำต้องสาป','cav',['enter','skip','shout']],['ทริปข้ามสะพานเก่า','brg',['cross','detour','sneak']]].forEach(([ti,id,st])=>{
+  const e=XL.find(x=>x.ti===ti);if(!e)return;e.rpT=id;st.forEach((s,i)=>{if(e.o[i])e.o[i].rp=s;});
+  if(!/🔗/.test(e.q))e.q+='<br><small style="color:var(--mu)">🔗 โลกจะจดจำสิ่งที่คุณเลือก</small>';});
+}
+
+// ################ build-system ################
+// ===== build-system · Phase 2 #6: Roguelite Build — สาย 4 แบบ (นักล่า/นักสำรวจ/นักปราชญ์/ผู้พิทักษ์) · พรประจำทริป · Synergy ที่ผู้เล่นค้นพบเอง · โหลดหลังสุด =====
+// ของสะสมแต่ละชิ้น (BT) มี "แต้มสาย" + "คีย์ลักษณะ" + ความสามารถแบบมีเงื่อนไข (ซ้อนเพิ่มจาก ABL เดิม ไม่แทนที่)
+// ระหว่างทริปได้ "พร" (BN) ทุก ~3 ชั้น เลือก 1 จาก 3 (หรือข้ามเพื่อฟื้นพลัง) · พร+ของสวมใส่ = แต้มสาย → สายหลัก Lv1-3 (มีทั้งจุดแข็งและจุดอ่อน)
+// คีย์ลักษณะที่ครบตามสูตรลับ (SYN) จะปลุก Synergy เอง — ไม่บอกล่วงหน้า มีแค่ใบ้ในกล่องเก็บของ
+{
+const TG={hunt:['⚔️','นักล่า'],scout:['🪶','นักสำรวจ'],sage:['📖','นักปราชญ์'],guard:['🛡️','ผู้พิทักษ์']};
+const FXK=['dmg','lowDmg','bossDmg','mom','rvDmg','def','lowDef','hiEnDef','xc','ev','lowEv','evEn','free','sec','secCrys','ins','peek','win','winLow','winGold','winCrys','winFood','help','str','spd','int'];
+const BT={
+ fern:{t:{guard:1,sage:1},k:['win'],fx:{win:3},d:'ชนะศึกแล้วฟื้นพลัง +3'},
+ mush:{t:{scout:2},k:['free'],fx:{free:.1},d:'ก้าวเงียบ: 10% เดินชั้นนั้นโดยไม่เสียพลัง'},
+ pearl:{t:{scout:1,guard:1},k:['lowEv'],fx:{lowEv:.15},d:'พลังต่ำกว่า 40% หลบศัตรูทั่วไปง่ายขึ้น +15%'},
+ lotus:{t:{guard:1,hunt:1},k:['revive'],fx:{rvDmg:.3},d:'หลังคืนชีพ ตีแรงขึ้น +30% จนจบศึก'},
+ rootd:{t:{guard:2},k:['hiEn'],fx:{hiEnDef:.08},d:'พลังมากกว่า 70% รับดาเมจน้อยลง 8%'},
+ fang:{t:{hunt:3},k:['hunter'],fx:{bossDmg:.25,def:-.1},d:'ตีบอสแรงขึ้น +25% แต่รับดาเมจเพิ่ม 10%'},
+ cact:{t:{hunt:2},k:['lowDmg'],fx:{lowDmg:.25},d:'HP ต่ำกว่า 40% ตีแรงขึ้น +25%'},
+ shard:{t:{sage:2},k:['sec'],fx:{sec:.3},d:'พื้นที่ลับโผล่บ่อยขึ้น +30%'},
+ scarab:{t:{sage:1,scout:1},k:['gold'],fx:{winGold:.8},d:'ชนะศึกได้เงินติดมือเพิ่ม'},
+ mirage:{t:{sage:3},k:['peek'],fx:{ins:.2,peek:1},d:'อ่านลางบอสล่วงหน้า 1-2 ชั้น + อ่านสัญญาณบอสง่ายขึ้น'},
+ amph:{t:{guard:1,scout:1},k:['food'],fx:{winFood:.12},d:'ชนะศึกแล้ว 12% เจออาหารใส่กระเป๋า'},
+ sting:{t:{guard:3},k:['bulwark','lowDef'],fx:{lowDef:.15,dmg:-.1},d:'HP ต่ำรับดาเมจน้อยลงอีก 15% แต่ตีอ่อนลง 10%'},
+ flake:{t:{guard:1,scout:1},k:['lowDef'],fx:{lowDef:.2},d:'HP ต่ำกว่า 40% รับดาเมจน้อยลง 20%'},
+ ember:{t:{hunt:2},k:['mom'],fx:{mom:.08},d:'ชนะติดกันตีแรงสะสม +8% ต่อครั้ง (สูงสุด 3)'},
+ rime:{t:{sage:1,hunt:1},k:['lucky'],fx:{winCrys:.04},d:'ชนะศึกมีโอกาส 4% เจอผลึก'},
+ star:{t:{scout:3},k:['stealth'],fx:{evEn:4},d:'หลบศัตรูสำเร็จแล้วฟื้นพลัง +4'},
+ bellx:{t:{guard:2},k:['help'],fx:{help:2},d:'เหตุการณ์ช่วยเหลือ ได้ความสนิทเพิ่ม +2'},
+ pelt:{t:{guard:3},k:['guardian'],fx:{def:.1,dmg:-.08},d:'รับดาเมจลดลง 10% แต่ตีอ่อนลง 8%'}
+};
+const BN=[
+ {id:'edge',ic:'🗡️',n:'คมมีด',t:{hunt:1},fx:{dmg:.1},d:'ตีแรงขึ้น +10%'},
+ {id:'bloodlust',ic:'🩸',n:'กระหายเลือด',t:{hunt:2},k:['lowDmg'],fx:{lowDmg:.3,def:-.05},d:'HP ต่ำตีแรง +30% · รับดาเมจเพิ่ม 5%'},
+ {id:'slayer',ic:'👑',n:'นักล่าบอส',t:{hunt:2},k:['hunter'],fx:{bossDmg:.2},d:'ตีบอสแรงขึ้น +20%'},
+ {id:'adren',ic:'⚡',n:'อะดรีนาลีน',t:{hunt:1},k:['mom'],fx:{mom:.06},d:'ชนะติดกันตีแรงสะสม +6% ต่อครั้ง'},
+ {id:'glass',ic:'🔮',n:'กระจกร้าว',t:{hunt:2},fx:{dmg:.25,def:-.15},d:'⚖️ ตีแรง +25% แต่รับดาเมจเพิ่ม 15%'},
+ {id:'coin',ic:'🪙',n:'ค่าหัว',t:{hunt:1,sage:1},k:['gold'],fx:{winGold:.8},d:'ชนะศึกได้เงินติดมือเพิ่ม'},
+ {id:'light',ic:'🪶',n:'เดินเบา',t:{scout:2},fx:{xc:1},d:'ประหยัดพลังงาน −1 ต่อชั้น'},
+ {id:'shadow',ic:'🌫️',n:'เงาเร้นกาย',t:{scout:2},k:['stealth'],fx:{ev:.12,evEn:3},d:'หลบศัตรูทั่วไป +12% · หลบได้ฟื้นพลัง +3'},
+ {id:'step',ic:'👟',n:'ก้าวพริ้ว',t:{scout:1},k:['free'],fx:{free:.12},d:'12% เดินชั้นนั้นโดยไม่เสียพลัง'},
+ {id:'wind',ic:'🍃',n:'ลมหนุน',t:{scout:1,guard:1},k:['lowEv'],fx:{lowEv:.2},d:'พลังต่ำกว่า 40% หลบศัตรูง่ายขึ้น +20%'},
+ {id:'pocket',ic:'🎒',n:'กระเป๋าเสบียง',t:{scout:1,guard:1},k:['food'],fx:{winFood:.15},d:'ชนะศึกแล้ว 15% เจออาหาร'},
+ {id:'eye',ic:'👁️',n:'ตาแห่งปัญญา',t:{sage:2},k:['sec'],fx:{sec:.4},d:'พื้นที่ลับโผล่บ่อยขึ้น +40%'},
+ {id:'omen',ic:'📖',n:'อ่านลางบอส',t:{sage:2},k:['peek'],fx:{ins:.25,peek:1},d:'รู้ตัวบอสล่วงหน้า + อ่านสัญญาณง่ายขึ้น'},
+ {id:'scholar',ic:'🧪',n:'นักค้นคว้า',t:{sage:1},fx:{secCrys:.2,int:2},d:'+2 ปัญญา · เจอของในพื้นที่ลับมีโอกาสได้ผลึกเพิ่ม'},
+ {id:'fortune',ic:'🍀',n:'โชคชะตา',t:{sage:1,scout:1},k:['lucky'],fx:{winCrys:.05},d:'ชนะศึกมีโอกาส 5% เจอผลึก'},
+ {id:'plate',ic:'🛡️',n:'เกราะเบา',t:{guard:2},fx:{def:.1},d:'รับดาเมจน้อยลง 10%'},
+ {id:'scar',ic:'🩹',n:'แผลเก่า',t:{guard:2},k:['lowDef'],fx:{lowDef:.25},d:'HP ต่ำรับดาเมจน้อยลง 25%'},
+ {id:'mercy',ic:'💚',n:'ใจเมตตา',t:{guard:1,sage:1},k:['win'],fx:{win:4},d:'ชนะศึกแล้วฟื้นพลัง +4'},
+ {id:'kind',ic:'🤝',n:'น้ำใจ',t:{guard:2},k:['help'],fx:{help:2},d:'เหตุการณ์ช่วยเหลือ ได้สนิทเพิ่ม +2'},
+ {id:'stout',ic:'🍖',n:'อึดถึก',t:{guard:1},k:['hiEn'],fx:{hiEnDef:.1},d:'พลังมากกว่า 70% รับดาเมจน้อยลง 10%'},
+ {id:'quilt',ic:'🧶',n:'ผ้าห่มหนา',t:{guard:2},k:['guardian'],fx:{def:.15,dmg:-.12},d:'⚖️ รับดาเมจ −15% แต่ตีอ่อนลง 12%'}
+];
+// สูตรลับ: k = ต้องมีคีย์ครบทุกตัว (ตัวที่เป็น array = มีตัวใดตัวหนึ่งก็พอ)
+const SYN=[
+ {id:'berserk',ic:'🩸',n:'สายเลือดนักสู้',k:['lowDmg','lowDef','win'],fx:{lowDmg:.2,winLow:8},d:'ยิ่งเจ็บยิ่งแกร่ง: ตีแรงเพิ่ม +20% ตอน HP ต่ำ · ชนะตอน HP ต่ำฟื้นพลัง +8',h:'ความเจ็บปวด 2 แบบ (ตี/รับ) + รางวัลของชัยชนะ'},
+ {id:'phoenix',ic:'🔥',n:'ฟีนิกซ์',k:['revive','lowDmg'],fx:{rvDmg:.35},d:'ลุกจากเถ้าถ่าน: หลังคืนชีพตีแรงเพิ่มอีก +35%',h:'การกลับมาจากความตาย + พลังตอนเลือดต่ำ'},
+ {id:'chain',ic:'⛓️',n:'ล่าไม่หยุด',k:['mom','hunter'],fx:{bossDmg:.1,win:2},d:'ชนะต่อเนื่องแล้วโหมใส่บอส: ตีบอส +10% · ชนะฟื้นพลัง +2',h:'จังหวะต่อเนื่อง + สัญชาตญาณล่าเหยื่อใหญ่'},
+ {id:'ghost',ic:'👻',n:'ผีเร้นกาย',k:['stealth','free'],fx:{ev:.1,free:.1,evEn:3},d:'ไม่มีใครเห็นการมาของคุณ: หลบศัตรู +10% · เดินฟรี +10% · หลบแล้วฟื้นพลัง +3',h:'การย่องที่ให้รางวัล + ก้าวที่ไร้เสียง'},
+ {id:'seer',ic:'🔮',n:'จักษุผู้รู้',k:['peek','sec'],fx:{sec:.3,secCrys:.25},d:'เห็นทั้งอนาคตและความลับ: พื้นที่ลับ +30% · ของในพื้นที่ลับมีโอกาสได้ผลึก 25%',h:'ผู้ที่อ่านลางได้ + ผู้ที่เห็นสิ่งซ่อนเร้น'},
+ {id:'bastion',ic:'🏰',n:'ปราการ',k:[['bulwark','guardian'],'hiEn'],fx:{def:.08,lowDef:.1},d:'ยืนหยัดไม่ล้ม: รับดาเมจ −8% ตลอด และ −10% เมื่อ HP ต่ำ',h:'ผู้พิทักษ์ที่ยังมีแรงเหลือเฟือ'},
+ {id:'shepherd',ic:'🐑',n:'ผู้ดูแล',k:['help','win'],fx:{help:2,win:3},d:'ช่วยคนแล้วได้แรงกลับมา: สนิทเพิ่ม +2 · ชนะฟื้นพลัง +3',h:'น้ำใจกับการชนะที่ฟื้นแรง'},
+ {id:'scav',ic:'🧺',n:'นักเก็บเกี่ยว',k:['gold','food','lucky'],fx:{winGold:.6,winFood:.1,winCrys:.03},d:'ไม่มีอะไรตกหล่น: ชนะศึกเก็บเงิน อาหาร และผลึกได้มากขึ้น',h:'เงิน อาหาร และโชค — เก็บทุกอย่างหลังศึก'},
+ {id:'breeze',ic:'🍃',n:'ลมพาไป',k:['free','lowEv'],fx:{xc:1,ev:.08},d:'เคลื่อนไหวเบาเหมือนลม: ประหยัดพลัง −1 ต่อชั้น · หลบศัตรู +8%',h:'ก้าวที่ไร้เสียงกับลมที่ช่วยตอนเหนื่อย'}
+];
+const AP={
+ hunt:t=>({fx:{bossDmg:.08*t,dmg:.03*t,def:-.04*t,xc:t>=2?-1:0},s:`ตีบอส +${8*t}% · ตีทั่วไป +${3*t}%`,w:`รับดาเมจ +${4*t}%${t>=2?' · เดินเปลืองพลัง +1':''}`}),
+ scout:t=>({fx:{xc:t>=3?2:t>=2?1:0,ev:.06*t,dmg:-.04*t},s:`${t>=2?'ประหยัดพลัง −'+(t>=3?2:1)+' · ':''}หลบศัตรู +${6*t}%`,w:`ตีทั่วไป −${4*t}%`}),
+ sage:t=>({fx:{sec:.2*t,ins:.08*t,peek:t>=2?1:0,def:-.03*t},s:`พื้นที่ลับ +${20*t}% · อ่านสัญญาณบอส${t>=2?' + ลางบอสล่วงหน้า':''}`,w:`รับดาเมจ +${3*t}%`}),
+ guard:t=>({fx:{def:.05*t,help:t,win:t,dmg:-.05*t},s:`รับดาเมจ −${5*t}% · ช่วยเพื่อนสนิท +${t} · ชนะฟื้นพลัง +${t}`,w:`ตีทั่วไป −${5*t}%`})
+};
+const bnRun=()=>{const R=dx().run;return(R&&R.bn)||[];};
+let _memo=null;
+function bnCalc(){
+  const D=dx(),eq=D.eq||[],sig=eq.map(id=>id+dxLv(id)).join()+'|'+bnRun().join();
+  if(_memo&&_memo.sig===sig)return _memo;
+  const pts={hunt:0,scout:0,sage:0,guard:0},keys=new Set(),fx={};FXK.forEach(k=>fx[k]=0);
+  const add=(o,m)=>{Object.keys(o.t||{}).forEach(k=>pts[k]+=o.t[k]);(o.k||[]).forEach(k=>keys.add(k));Object.keys(o.fx||{}).forEach(k=>fx[k]+=o.fx[k]*m);};
+  eq.forEach(id=>{if(BT[id])add(BT[id],dxM(id));});
+  bnRun().forEach(id=>{const b=BN.find(x=>x.id===id);if(b)add(b,1);});
+  const act=SYN.filter(s=>s.k.every(r=>Array.isArray(r)?r.some(x=>keys.has(x)):keys.has(r)));
+  act.forEach(s=>Object.keys(s.fx).forEach(k=>fx[k]+=s.fx[k]));
+  const top=Object.keys(pts).sort((a,b)=>pts[b]-pts[a])[0],p=pts[top],tier=p>=6?3:p>=4?2:p>=2?1:0;
+  let ar=null;if(tier){const a=AP[top](tier);ar={id:top,tier,p,s:a.s,w:a.w};Object.keys(a.fx).forEach(k=>fx[k]+=a.fx[k]);}
+  return _memo={sig,fx,pts,keys,act,ar};
+}
+window.bnFx=()=>bnCalc().fx;window.bnAr=()=>bnCalc().ar;
+window.bnStat=k=>(S.c&&bnCalc().fx[k])||0;
+window.bnXc=()=>cl(Math.round(bnCalc().fx.xc),-3,3);
+const hpr=b=>b.pm?b.ph/b.pm:1;
+window.bnOut=b=>{const f=bnCalc().fx,R=dx().run||{};let m=1+f.dmg;if(hpr(b)<.4)m+=f.lowDmg;if(b.xf&&b.xf.boss)m+=f.bossDmg;m+=(R.mom|0)*f.mom;if(b.bnRv)m+=f.rvDmg;return cl(m,.5,2);};
+window.bnIn=b=>{const f=bnCalc().fx;let r=f.def;if(hpr(b)<.4)r+=f.lowDef;if(S.c&&S.c.en>70)r+=f.hiEnDef;return cl(1-r,.4,1.5);};
+const bnEv=()=>{const f=bnCalc().fx;return cl(f.ev+(S.c.en<40?f.lowEv:0),0,.6);};
+function bnSync(){const D=dx(),s=D.syn=D.syn||{},n=[];bnCalc().act.forEach(x=>{if(!s[x.id]){s[x.id]=1;n.push(x);}});return n;}
+const synTxt=n=>n.map(x=>`✨ ค้นพบ Synergy: ${x.ic} ${x.n} — ${x.d}`).join('<br>');
+const tagStr=t=>Object.keys(t||{}).map(k=>TG[k][0].repeat(t[k])).join('');
+const arName=a=>a?`${TG[a.id][0]} ${TG[a.id][1]} Lv${a.tier}`:'ยังไม่มีสายหลัก';
+
+// ----- ผูกกับระบบเดิม -----
+{
+  const _m=soulFightMul;soulFightMul=function(c,b){const r=_m.apply(this,arguments);return c===S.c?r*bnOut(b):r;};
+  const _rv=dxRevive;dxRevive=function(b){const r=_rv.apply(this,arguments);if(r&&bnCalc().fx.rvDmg>0){b.bnRv=1;b.L.unshift('🔥 พลังฮึดหลังคืนชีพ ตีแรงขึ้น!');}return r;};
+  const _xc=xChallenge;xChallenge=function(boss){
+    try{const R=dx().run,c=S.c;if(!boss&&c&&!R.pend&&!R.resc){const p=bnEv();if(Math.random()<p){const f=bnCalc().fx,g=Math.round(f.evEn);if(g)c.en=cl(c.en+g);
+      xMsg(xOut(`${c.name}ย่องหลบศัตรูไปได้โดยไม่ถูกสังเกต${g?' · 🔋+'+g:''}`,xCh(['🪶 สายนักสำรวจ']),'🪶'));return xAfter();}}}catch(e){}
+    return _xc.apply(this,arguments);};
+  const _fe=xFightEnd;xFightEnd=function(w,b){
+    const r=_fe.apply(this,arguments);
+    try{const c=S.c,R=dx().run,f=bnCalc().fx,B=BIO[PX.bi];
+      if(!w){R.mom=0;}else{
+        if(f.mom>0)R.mom=Math.min(3,(R.mom|0)+1);
+        let en=Math.round(f.win+(hpr(b)<.4?f.winLow:0));if(en>0){c.en=cl(c.en+en);dxPre+=`🔋 ชัยชนะเติมแรง +${en}<br>`;}
+        if(f.winGold>0){const g=Math.round((8+S.depth*3)*f.winGold*B.lm);S.money+=g;dxPre+=`🪙 เก็บของจากศัตรู +฿${g}<br>`;}
+        if(Math.random()<f.winCrys){S.crystal++;dxPre+='💎 เจอผลึกในซากศัตรู +1<br>';}
+        if(Math.random()<f.winFood&&bagAdd('rice'))dxPre+='🍙 เจออาหารติดมือ<br>';
+        if(f.mom>0&&R.mom>1)dxPre+=`🔥 ชนะติดกัน ×${R.mom} (ตีแรงขึ้น)<br>`;}
+    }catch(e){}
+    return r;};
+  const _g=xGo,_bd=dxBoss;
+  dxBoss=function(){const R=dx().run;if(R&&R.nb){const b=R.nb;R.nb=null;return b;}return _bd.apply(this,arguments);};
+  xGo=function(){
+    let free=0,cost=0;
+    try{if(S.c&&!xWhy()){const f=bnCalc().fx,R=dx().run;
+      if(!S.depth){const n=bnSync();if(n.length)dxPre+=synTxt(n)+'<br>';}
+      if(Math.random()<cl(f.free,0,.5)){free=1;cost=xCost();dxPre+='👟 ก้าวพริ้ว! ชั้นนี้ไม่เสียพลัง<br>';}
+      if(f.peek>0&&(S.depth%10===8||S.depth%10===9)&&R.pk!==Math.floor((S.depth+2)/10)){R.pk=Math.floor((S.depth+2)/10);const b=_bd();R.nb=b;dxPre+=`📖 อ่านลางบอส: ข้างหน้าคือ ${b.ic}${b.n}<br><small>💡 ${b.tip}</small><br>`;}}}catch(e){}
+    const r=_g.apply(this,arguments);
+    try{if(free)S.c.en=cl(S.c.en+cost);}catch(e){}
+    return r;};
+  const _tw=dxTypeW;dxTypeW=function(){const k=1+bnCalc().fx.sec;return _tw.apply(this,arguments).map(([t,w])=>[t,t==='sec'?w*k:w]);};
+  const _dc=dxCol;dxCol=function(src){let t=_dc.apply(this,arguments);try{const f=bnCalc().fx;if(t&&src==='s'&&Math.random()<f.secCrys){S.crystal++;t+=' · 💎+1 (ความลับซ่อนผลึกไว้)';}}catch(e){}return t;};
+  const hp=o=>{try{if(o&&o.n==='f'){const h=Math.round(bnCalc().fx.help);if(h>0&&S.c){S.c.bond=cl(S.c.bond+h);dxPre+=`🛡️ น้ำใจของผู้พิทักษ์ สนิท +${h}<br>`;}}}catch(e){}};
+  const _xf=xfx;xfx=function(o){const r=_xf.apply(this,arguments);hp(o);return r;};
+  const _cp=cqPick;cqPick=function(q,pick){const o=q&&q.L&&q.L.o&&q.L.o[pick];const r=_cp.apply(this,arguments);hp(o);return r;};
+  const _eq=dxEq;dxEq=function(id){_eq.apply(this,arguments);try{const n=bnSync();if(n.length)setSay(n.map(x=>`✨ ค้นพบ ${x.n}!`).join(' '),3500);}catch(e){}};
+  const _ds=dxStat;dxStat=function(){const f=bnCalc(),n=bnRun().length;return _ds.apply(this,arguments)+((f.ar||n)?`<br>🧬 ${arName(f.ar)}${n?' · 🎴'+n+' พร':''}`:'');};
+  const _bk=xBack;xBack=function(){
+    try{if(!XQ&&S.depth>0){const f=bnCalc(),bs=bnRun().map(id=>{const b=BN.find(x=>x.id===id);return b?b.ic:'';}).join('');if(f.ar||bs)dxPre+=`🧬 Build ทริปนี้: ${arName(f.ar)}${bs?' · พร '+bs:''}${f.act.length?' · ✨'+f.act.map(x=>x.n).join(','):''}<br>`;}}catch(e){}
+    return _bk.apply(this,arguments);};
+  // เสนอพรทุก ~3 ชั้น
+  const _n=dxNode;dxNode=function(s0,ctx){try{const R=dx().run,n=(R.bn||[]).length+(R.bnSk|0);if(S.c&&n<8&&S.depth>=2+3*n&&bnOffer(ctx,s0))return 1;}catch(e){}return _n.apply(this,arguments);};
+}
+function bnOffer(ctx,s0){
+  const R=dx().run,have=R.bn||(R.bn=[]),f=bnCalc(),top=f.ar&&f.ar.id;
+  const pool=BN.filter(b=>!have.includes(b.id)).map(b=>[b,1+(top&&b.t[top]?1.8:0)]),pick=[];
+  while(pick.length<3&&pool.length){const b=wpick(pool.map(([x,w])=>[x.id,w])),i=pool.findIndex(([x])=>x.id===b);pick.push(pool[i][0]);pool.splice(i,1);}
+  if(top&&!pick.some(b=>!b.t[top])){const o=BN.filter(b=>!have.includes(b.id)&&!b.t[top]&&!pick.includes(b));if(o.length)pick[2]=pk(o);}
+  if(pick.length<2)return false;
+  const L={ti:'🎴 พรแห่งทาง',q:`${pk(['ศาลเก่าริมทางส่องแสงเรืองรอง','เสียงกระซิบในสายลมยื่นข้อเสนอ','หีบไม้เล็กๆ เปิดออกเอง','เงาของนักสำรวจรุ่นก่อนยืนรออยู่'])}… เลือกพรให้ ${S.c.name} ได้ 1 อย่าง (มีผลถึงจบทริป)${f.ar?'<br><small>ตอนนี้: '+arName(f.ar)+'</small>':''}`,
+    o:[...pick.map(b=>({l:`${b.ic} ${b.n} (${tagStr(b.t)} ${b.d})`,fn:()=>bnTake(b)})),{l:'🙅 ไม่รับ (ฟื้นพลัง +8)',fl:1,fn:()=>{R.bnSk=(R.bnSk|0)+1;S.c.en=cl(S.c.en+8);return `${S.c.name}ปฏิเสธและพักหายใจ 🔋+8 (ยังเดินตามสไตล์เดิมต่อ)`;}}]};
+  XQ={L,ctx,s0,cq:'bn'};xAsk();return true;
+}
+function bnTake(b){
+  const R=dx().run,a0=bnCalc().ar;R.bn=R.bn||[];R.bn.push(b.id);_memo=null;
+  const f=bnCalc(),n=bnSync();let t=`🎴 ได้รับพร ${b.ic}${b.n}: ${b.d}`;
+  if(f.ar&&(!a0||a0.id!==f.ar.id))t+=`<br>🧬 Build เริ่มเป็น ${arName(f.ar)}!<br><small>✅ ${f.ar.s}<br>⚠️ ${f.ar.w}</small>`;
+  else if(f.ar&&a0&&f.ar.tier>a0.tier)t+=`<br>🧬 ${arName(f.ar)} แข็งแกร่งขึ้น!<br><small>✅ ${f.ar.s}<br>⚠️ ${f.ar.w}</small>`;
+  if(n.length)t+='<br>'+synTxt(n);return t;
+}
+// ----- UI ในกล่องเก็บของ -----
+window.bnItemLine=id=>BT[id]?`<br><small style="color:#9c8">🧬 ${tagStr(BT[id].t)} ${BT[id].d}</small>`:'';
+window.bnPanel=()=>{
+  _memo=null;const f=bnCalc(),D=dx(),dis=D.syn||{},act=new Set(f.act.map(x=>x.id)),R=dx().run,bs=bnRun().map(id=>BN.find(x=>x.id===id)).filter(Boolean);
+  const pts=Object.keys(TG).map(k=>`${TG[k][0]}${f.pts[k]}`).join(' ');
+  const found=SYN.filter(s=>dis[s.id]).map(s=>`${act.has(s.id)?'✅':'▫️'} ${s.ic} <b>${s.n}</b> <small>${s.d}</small>`),hid=SYN.filter(s=>!dis[s.id]);
+  return `<div class="card" style="text-align:left;border-left:6px solid #7c5"><b>🧬 Build ปัจจุบัน: ${arName(f.ar)}</b> <small>(แต้มสาย ${pts})</small><div class="log" style="margin:4px 0">${f.ar?`✅ ${f.ar.s}<br>⚠️ ${f.ar.w}`:'สวมของสะสมหรือเลือกพรระหว่างทริปให้มีแต้มสายตั้งแต่ 2 ขึ้นไป — แต่ละสายมีทั้งจุดแข็งและจุดอ่อน'}${bs.length?`<br>🎴 พรทริปนี้: ${bs.map(b=>b.ic+b.n).join(' · ')}`:''}</div>${found.length?`<div class="log" style="margin:4px 0"><b>✨ Synergy ที่ค้นพบ</b><br>${found.join('<br>')}</div>`:''}${hid.length?`<div class="log" style="margin:4px 0"><small>❔ ยังซ่อนอยู่ ${hid.length} แบบ — ใบ้: ${hid.slice(0,2).map(s=>s.h).join(' / ')}</small></div>`:''}</div>`;
+};
+}
+
+// ################ fight-pace ################
+// ===== fight-pace · ปรับบาลานซ์: ศึกยาวขึ้น =====
+// FIGHT_LEN = ศึกยาวกี่เท่า (2 = ตีกันนานขึ้นเท่าตัว) · ทำโดยคูณ HP ทั้งสองฝ่าย ดาเมจต่อครั้งเท่าเดิม → โอกาสแพ้ชนะเท่าเดิม แค่จำนวนรอบมากขึ้น
+// ปรับเลขนี้ตัวเดียวได้เลย (1 = แบบเดิม · 1.5 = ยาวขึ้นครึ่งหนึ่ง · 3 = ยาวขึ้น 3 เท่า)
+const FIGHT_LEN=2;
+{
+  const scale=b=>{if(!b||b.lenX)return;b.lenX=1;['ph','pm','eh','em'].forEach(k=>{b[k]=Math.round(b[k]*FIGHT_LEN);});};
+  const _f=fight;fight=function(){const had=!!S.b;const r=_f.apply(this,arguments);if(!had)scale(S.b);try{updBattle();}catch(e){}return r;};
+  const _x=xFight;xFight=function(){const had=!!S.b;const r=_x.apply(this,arguments);if(!had)scale(S.b);try{updBattle();}catch(e){}return r;};
+  // ของกินรักษา HP แบบตายตัว ต้องคูณตามเพื่อให้ฟื้นได้สัดส่วนเดิม
+  const _h=xHeal;xHeal=function(){const b=S.b,h0=b?b.ph:0;const r=_h.apply(this,arguments);try{if(b&&b===S.b&&b.ph>h0&&FIGHT_LEN>1){b.ph=Math.min(b.pm,b.ph+Math.round((b.ph-h0)*(FIGHT_LEN-1)));updBattle();}}catch(e){}return r;};
+}
+
+// ################ boss-signature ################
+// ===== boss-signature · บอสแต่ละตัวบังคับให้เปลี่ยนวิธีเล่น · สัญญาณก่อนโจมตีที่อ่านได้ · คำสั่ง 📣เชียร์ · โหลดหลังสุด =====
+// คำสั่งต่อสู้บอส: ⚔️โจมตี(ไม่เลือก) · ⚔️เต็มกำลัง · 🛡️ป้องกัน · ✨ท่าประจำตัว · 🎒ไอเทม · 🤝เพื่อน · 📣เชียร์(ตีแรง +50% รอบนี้ · ล้างพิษ · ใช้ได้ b.ch ครั้ง)
+// สัญญาณ: "เห็นอาการ" เสมอ (🔔) ส่วน "วิธีรับมือ" (→) ต้องอ่านออก (ปัญญา/ตาทิพย์/พร) · ทุกบอสเข้าสู่ ✨ช่วงคลั่ง เมื่อ HP < 35% (รับแรงกว่า แต่ตีได้เจ็บขึ้นหลังจากนั้น)
+// 🌳Forest Guardian เกราะหนา รอเกราะเปิด · 🏜️Sand Emperor พิษสะสม + พายุกลบของในกระเป๋า (ต้องบริหารไอเทม) · 🐺Frost Beast เปลี่ยนรูปตาม HP
+// 🕰️บอสแห่งความทรงจำ ดึงความทรงจำจริงของสัตว์มาเป็นกลไก (อบอุ่น/ผิดหวัง/ภาคภูมิใจ แต่ละแบบต้องรับมือต่างกัน)
+// 👤บอสเงา เลียนแบบ Build ของผู้เล่น แล้วบีบให้เปลี่ยนวิธีเล่น
+{
+if(!DXB.some(b=>b.id==='memory'))DXB.push(
+ {id:'memory',ic:'🕰️',n:'เงาแห่งความทรงจำ',tip:'ดึงความทรงจำจริงของสัตว์มาสู้: ภาพอบอุ่น→🤝/📣 · ความรู้สึกผิด→🛡️/📣 · ความภาคภูมิใจ→⚔️เต็มกำลัง/✨'},
+ {id:'shadow',ic:'👤',n:'เงาสะท้อน',tip:'เลียนแบบ Build ของคุณ แล้วบีบให้เปลี่ยนวิธีเล่น — ดูกฎของเงาที่แถบสถานะ แล้วทำตรงข้าม'});
+const WARM=/help|escort|redeem|mend|quest|friend|gift|kind|bond|love|rescue/,COLD=/regret|pass|guilt|cold|sad|hurt|lose|lost|fear|flee|ignore|late|abandon/;
+const THEME={warm:['eW','🕰️ ภาพอบอุ่นลอยขึ้น — ความสุขในอดีตล่อให้ลืมสู้'],cold:['eC','🕰️ ภาพความรู้สึกผิดลอยขึ้น — มันกำลังกดทับ'],brave:['eB','🕰️ ภาพความภาคภูมิใจลอยขึ้น — กลายเป็นเกราะแข็งกร้าว']};
+const cut=s=>{s=String(s||'').replace(/<[^>]+>/g,'');return s.length>46?s.slice(0,45)+'…':s;};
+// ดึงความทรงจำจริง: สมุดบันทึกของสัตว์ + สิ่งที่โลกจดจำ (deeds)
+window.bsEchoes=real=>{
+  const out=[],seen=new Set(),add=(k,t,w)=>{t=cut(t);if(!t||seen.has(t))return;seen.add(t);out.push({th:WARM.test(k)?'warm':COLD.test(k)?'cold':'brave',txt:t,w:w||1});};
+  try{const j=(S.c&&S.c.soul&&S.c.soul.j)||[];j.filter(e=>(e.w|0)>=2&&e.k!=='wake'&&e.k!=='old').sort((a,b)=>b.w-a.w).slice(0,5).forEach(e=>add(e.k,e.t,e.w));}catch(e){}
+  try{((S.rp&&S.rp.deeds)||[]).slice(0,4).forEach(d=>add(d.k,d.t,2));}catch(e){}
+  out.sort((a,b)=>b.w-a.w);const res=out.slice(0,4);
+  if(real)return res;
+  [['warm','ไออุ่นของมื้ออาหารมื้อแรกที่ได้กินกับเจ้านาย'],['cold','ค่ำคืนที่หิวและเหงา ไม่มีใครอยู่ข้างๆ'],['brave','วันแรกที่ชนะศึกด้วยตัวเอง']].forEach(([th,t])=>{if(!res.some(x=>x.th===th))res.push({th,txt:t,w:1});});
+  return res;
+};
+const bsMode=()=>{const a=typeof bnAr==='function'?bnAr():null;if(a)return a.id;const c=S.c,m={hunt:eff(c,'str'),scout:eff(c,'spd'),sage:eff(c,'int')};return Object.keys(m).sort((x,y)=>m[y]-m[x])[0];};
+const SH={hunt:['⚔️','เงานักล่า','กระโจนใส่ทุก 3 รอบ · โหดขึ้นเมื่อเลือดต่ำ'],scout:['🪶','เงานักสำรวจ','หลบการตีธรรมดา ~20% · ✨และ🤝ไม่โดนหลบ'],sage:['📖','เงานักปราชญ์','อ่านท่า: ห้ามใช้คำสั่งโจมตีซ้ำรอบติดกัน'],guard:['🛡️','เงาผู้พิทักษ์','ตีธรรมดาโดนสะท้อน · ใช้ ⚔️เต็มกำลัง/✨ทะลวง']};
+const BBS={
+ open:{t:()=>'🌳 เกราะไม้แยกออกเป็นช่อง… กำลังเปิดจุดอ่อน',h:'โอกาส! ใช้ ⚔️เต็มกำลัง หรือ ✨ท่าประจำตัว'},
+ slam:{t:()=>'🌳 รากไม้ชูสูง กำลังรวบรวมพลัง…',h:'ตั้งรับ 🛡️ แล้วสวนกลับ'},
+ storm:{t:()=>'🏜️ ทรายหมุนวนเป็นวงกว้าง กำลังเตรียมโจมตีวงกว้าง…',h:'ตั้งรับ 🛡️ ไม่งั้นพายุจะกลบของในกระเป๋า'},
+ heavy:{t:()=>'🧊 ลมหนาวรวมตัวเป็นก้อน กำลังรวบรวมพลัง…',h:'ตั้งรับ 🛡️'},
+ freeze:{t:()=>'🥶 ละอองน้ำแข็งลอยรอบตัว เตรียมแช่แข็ง…',h:'ตั้งรับ 🛡️ ไม่งั้นถูกแช่แข็ง'},
+ frenzy:{t:()=>'🔥 ตาของบอสแดงก่ำ กำลังเข้าสู่ช่วงคลั่ง…',h:'ตั้งรับ 🛡️ ลดแรงปะทะ · หลังจากนี้ตีบอสได้เจ็บขึ้น'},
+ eW:{t:b=>`${THEME.warm[1]}: “${b.bs.cur.txt}”`,h:'เรียกเพื่อน 🤝 หรือเชียร์ 📣 เพื่อรับพลังใจ'},
+ eC:{t:b=>`${THEME.cold[1]}: “${b.bs.cur.txt}”`,h:'ตั้งรับ 🛡️ หรือเชียร์ 📣 เพื่อยอมรับมัน'},
+ eB:{t:b=>`${THEME.brave[1]}: “${b.bs.cur.txt}”`,h:'ทลายด้วย ⚔️เต็มกำลัง หรือ ✨ท่าประจำตัว'},
+ sPounce:{t:()=>'👤 เงาย่อตัวต่ำ รวบรวมพลังเตรียมกระโจน…',h:'ตั้งรับ 🛡️'},
+ sBlur:{t:()=>'👤 เงาพร่าเลือน กำลังสลับตำแหน่ง…',h:'ตีธรรมดาจะพลาดแน่ ใช้ ✨ท่าประจำตัว หรือ 🤝เพื่อน'},
+ sThorn:{t:()=>'👤 เงาตั้งเกราะหนามสะท้อน…',h:'ตีธรรมดาจะโดนสะท้อนหนัก ใช้ ⚔️เต็มกำลัง/✨ หรือ 🛡️รอ'}
+};
+const norm=(b,cmd)=>b.cheered?'cheer':cmd;
+// ----- ผลต่อดาเมจที่เราตี -----
+window.bsOut=(b,pd,cmd,pat,tg,ign)=>{
+  const S0=b.bs;if(!S0||!b.xf.boss)return pd;cmd=norm(b,cmd);const L=s=>b.L.unshift(s);
+  if(pat==='memory'){
+    if(tg.includes('eB')){if(cmd==='all'||cmd==='skill'){pd=Math.round(pd*1.3);b.stun=1;L('💥 ทลายเงาแห่งความภาคภูมิใจ! บอสมึนงง');}else{pd=Math.round(pd*.35);L('🪞 เงาแห่งความภาคภูมิใจสะท้อนแรงตี');}}
+    if(tg.includes('eW')&&cmd!=='ally'&&cmd!=='cheer'){pd=Math.round(pd*.6);L('🕰️ ภาพอบอุ่นดึงให้ตีช้าลง');}
+  }
+  if(pat==='shadow'){const m=S0.mode;
+    if(m==='scout'&&(cmd==='atk'||cmd==='all'||cmd==='cheer')&&Math.random()<(tg.includes('sBlur')?1:.2)){pd=0;L('👤 เงาสลับตำแหน่งหลบได้');}
+    else if(m==='sage'&&S0.prev&&cmd===S0.prev&&['atk','all','skill','ally','cheer'].includes(cmd)){pd=0;L('👁️ เงาอ่านท่าซ้ำออก ปัดป้องหมด!');}
+    else if(m==='guard'&&(cmd==='atk'||cmd==='cheer')){const th=tg.includes('sThorn'),back=Math.round(pd*(th?.6:.3));pd=Math.round(pd*(th?.3:.55));b.ph=Math.max(1,b.ph-back);L('🪞 เงาสะท้อนแรงตีกลับ −'+back);}
+  }
+  if(S0.fzOn)pd=Math.round(pd*1.15);
+  return pd;
+};
+// ----- ผลต่อดาเมจที่เราโดน (ต่อครั้ง) -----
+window.bsIn=(b,e,cmd,pat,tg,i,hits)=>{
+  const S0=b.bs;if(!S0||!b.xf.boss)return e;cmd=norm(b,cmd);const L=s=>b.L.unshift(s);
+  if(tg.includes('frenzy')){e=Math.round(e*(cmd==='def'?.8:1.5));if(i===0)L(cmd==='def'?'🛡️ รับมือช่วงคลั่งไว้ได้':'🔥 ช่วงคลั่ง! โจมตีรุนแรง');}
+  else if(S0.fzOn)e=Math.round(e*1.15);
+  if(pat==='memory'){
+    if(tg.includes('eC')){if(cmd==='def'||cmd==='cheer'){e=Math.round(e*.5);if(i===0){b.sp=Math.min(6,b.sp+1);L('🫂 ยอมรับความรู้สึกในอดีตได้ ใจนิ่งขึ้น (พลังศึก +1)');}}else{e=Math.round(e*1.8);if(i===0){b.sp=Math.max(0,b.sp-2);L('😔 ความรู้สึกผิดกัดกิน พลังศึก −2');}}}
+    else if(tg.includes('eW')){if(cmd==='ally'||cmd==='cheer'){e=Math.round(e*.5);if(i===0){const h=Math.round(b.pm*.12);b.ph=Math.min(b.pm,b.ph+h);L('💚 ความอบอุ่นในอดีตกลายเป็นกำลังใจ HP +'+h);}}else if(i===0){const h=Math.round(b.em*.1);b.eh=Math.min(b.em,b.eh+h);L('🕰️ ภาพอบอุ่นปลอบบอสจนฟื้น +'+h);}}
+    else e=Math.round(e*.85);
+  }
+  if(pat==='shadow'&&S0.mode==='hunt'){
+    if(tg.includes('sPounce')){if(cmd==='def'){e=Math.round(e*.7);if(i===0)L('🛡️ รับการกระโจนของเงาไว้ได้');}else{e=Math.round(e*2.2);if(i===0)L('🐾 เงากระโจนใส่รุนแรง!');}}
+    if(b.eh<b.em*.4)e=Math.round(e*1.25);
+  }
+  return e;
+};
+// ----- สัญญาณของรอบหน้า -----
+window.bsSig=(b,T,nx,pat)=>{
+  const S0=b.bs;if(!S0||!b.xf.boss)return;
+  if(b.eh<b.em*.35&&!S0.fz){S0.fz=1;T.push('frenzy');}
+  if(pat==='memory'&&nx%3===0){const e=S0.ec[S0.ei%S0.ec.length];S0.cur=e;T.push(THEME[e.th][0]);}
+  if(pat==='shadow'){if(S0.mode==='hunt'&&nx%3===0)T.push('sPounce');if(S0.mode==='scout'&&nx%3===0)T.push('sBlur');if(S0.mode==='guard'&&nx%4===0)T.push('sThorn');}
+};
+// ----- ห่อรอบต่อสู้: เชียร์ · พายุกลบของ · จดจำสถานะ -----
+{
+  const _bb=bbRound;
+  bbRound=function(){
+    const b=S.b;if(!b||!b.xf||b.end)return _bb.apply(this,arguments);
+    const pat=b.xf.pat,tgPrev=(b.tg||[]).slice();let cmd=b.cmd||'atk';
+    if(cmd==='cheer'){if(b.ch>0){b.ch--;b.buff=Math.max(b.buff||1,1.5);b.ps=Math.max(0,(b.ps|0)-2);b.cmd=null;b.cheered=1;b.L.unshift('📣 เชียร์! ตีแรงขึ้น 50% ในรอบนี้');}else{b.cmd=null;cmd='atk';}}
+    const r=_bb.apply(this,arguments);
+    try{
+      b.cheered=0;
+      if(pat==='sand'&&tgPrev.includes('storm')&&cmd!=='def'){const it=EI.filter(i=>S.bag[i.id]>0);if(it.length){const x=pk(it);S.bag[x.id]--;b.L.unshift(`🌪️ พายุทรายกลบ ${x.ic}${x.n} ในกระเป๋าไป 1 ชิ้น`);}}
+      const S0=b.bs;if(S0){
+        if(tgPrev.some(x=>x==='eW'||x==='eC'||x==='eB'))S0.ei++;
+        if(tgPrev.includes('frenzy'))S0.fzOn=1;
+        if(pat==='shadow')S0.prev=cmd;}
+      updBattle();
+    }catch(e){}
+    return r;};
+  // เริ่มศึกบอส: ตั้งค่ากลไกเฉพาะตัว
+  const _x=xFight;
+  xFight=function(f){
+    _x.apply(this,arguments);const b=S.b;
+    try{if(b&&b.xf&&b.xf.boss){const pat=b.xf.pat;b.ch=5;
+      if(['forest','sand','frost','memory','shadow'].includes(pat)){b.bs={ei:0,fz:0,fzOn:0};
+        if(pat==='memory'){b.bs.ec=bsEchoes();b.L.unshift(`🕰️ ภาพในอดีตเริ่มลอยขึ้นรอบตัวบอส… มันกำลังหยิบความทรงจำของ ${S.c.name}มาสู้`);}
+        if(pat==='shadow'){const m=bsMode(),s=SH[m];b.bs.mode=m;b.bs.prev=null;b.xf.name=`เงาของ${S.c.name}`;b.title=`👑 เงา ${S.c.name} · ชั้น ${S.depth}`;if(b.fo)b.fo[0]='👤';
+          b.L.unshift(`👤 ${s[1]}ปรากฏ! มันเลียนแบบ Build ของ ${S.c.name}: ${s[2]}`);}}
+      updBattle();}}catch(e){}
+  };
+}
+// ----- UI: สัญญาณ + คำสั่งครบ 6 แบบ -----
+bbUI=function(b){
+  const k=bbSkill(S.c),sp=b.sp|0,on=x=>b.cmd===x?'on':'',ok=bbPool().length>0||b.al>0,S0=b.bs,pat=b.xf.pat;
+  const T=b.tg||[],tells=T.map(x=>{const s=BBS[x];return s?`🔔 ${s.t(b)}${b.tgv?`<br>&nbsp;&nbsp;<b>→ ${s.h}</b>`:''}`:`⚠️ ${BBN[x]||x}`;});
+  let tg=tells.length?tells.join('<br>')+(b.tgv?'':'<br>&nbsp;&nbsp;<small>❔ ยังอ่านวิธีรับมือไม่ออก (ปัญญาสูง/ตาทิพย์/พรอ่านลางช่วยได้)</small>'):'';
+  const chips=[];
+  if(pat==='forest')chips.push(b.brk?'🌳 เกราะแตก':'🌳 เกราะหนา รอเกราะเปิด');
+  if(pat==='sand')chips.push(`🎒 ของในกระเป๋า ${bagN()} ชิ้น (พายุกลบได้)`);
+  if(pat==='frost'&&b.phs)chips.push(['🐺ว่องไว','🧊เกราะน้ำแข็ง','🌨️พายุแช่แข็ง'][b.phs-1]);
+  if(pat==='memory'&&S0)chips.push(`🕰️ ความทรงจำ ${S0.ec.length} ภาพ`);
+  if(pat==='shadow'&&S0){const s=SH[S0.mode];chips.push(`${s[0]} ${s[1]}: ${s[2]}${S0.mode==='sage'&&S0.prev?' (รอบก่อน: '+({atk:'โจมตี',all:'เต็มกำลัง',skill:'ท่าพิเศษ',ally:'เพื่อน',def:'ป้องกัน',item:'ไอเทม',cheer:'เชียร์'}[S0.prev]||S0.prev)+')':''}`);}
+  if(S0&&S0.fzOn)chips.push('🔥 คลั่ง (รับแรงกว่า · ตีบอสเจ็บขึ้น)');
+  return `<div class="log" style="text-align:left;margin:4px 0"><small>🔷${'●'.repeat(sp)}${'○'.repeat(6-sp)} พลังศึก${b.ps?' · ☠️พิษ×'+b.ps:''}${chips.length?'<br>'+chips.join('<br>'):''}${tg?'<br>'+tg:(S0?'<br>🔔 บอสกำลังรอจังหวะ…':'')}</small></div>
+  <div class="g"><button class="btn ${on('all')}" onclick="bbCmd('all')" ${sp>=2?'':'disabled'}>⚔️ เต็มกำลัง (2)</button><button class="btn ${on('def')}" onclick="bbCmd('def')">🛡️ ป้องกัน (+2)</button>
+  <button class="btn ${on('skill')}" style="grid-column:span 2" onclick="bbCmd('skill')" ${sp>=3?'':'disabled'}>${k.ic} ${k.n} (3)<br><small>${k.t} Lv${k.L} · ${BBF[k.g][1]}</small></button>
+  <button class="btn ${on('item')}" onclick="bbCmd('item')" ${bagN()?'':'disabled'}>🎒 ไอเทม (${bagN()})</button><button class="btn ${on('ally')}" onclick="bbCmd('ally')" ${ok&&!(b.fc>0)?'':'disabled'}>🤝 เรียกเพื่อน${b.fc>0?' ('+b.fc+')':''}</button>
+  <button class="btn ${on('cheer')}" style="grid-column:span 2" onclick="bbCmd('cheer')" ${b.ch>0?'':'disabled'}>📣 เชียร์ (${b.ch|0})<br><small>ตีแรงขึ้น 50% รอบนี้ · ล้างพิษ · ปลอบใจเมื่อโดนความทรงจำกดทับ</small></button></div>
+  <div class="log"><small>${b.cmd?'รอบถัดไป: คำสั่งที่เลือก':'ไม่เลือก = โจมตีปกติ'}</small></div>`;
+};
 }

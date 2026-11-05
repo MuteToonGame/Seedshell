@@ -540,7 +540,7 @@ function round(){
   const ed=Math.round(b.E*0.6+rnd(0,4));
   const ad=b.al?Math.round(b.al*.6+rnd(0,3)):0;const pdx=Math.round((b.xf&&b.xf.pat?dxPat(b,pd):pd)*(dxHas('fang')?1+.6*dxM('fang'):1));b.eh-=pdx+ad;anim('fP','atkR',350);setTimeout(()=>{anim('fE','hit',350);fx('e','-'+pdx,cr?'crit':'');},150);b.L.unshift((cr?'💥 คริติคอล! ':'')+c.name+' ตี '+pdx+(b.buff>1?' (เชียร์!)':''));b.buff=1;if(ad)b.L.unshift(b.an+' ช่วยตี '+ad);
   if(b.eh<=0){b.eh=0;return endFight(1);}
-  let edx=ed+(b.xf&&b.xf.pat?dxPatE(b,ed):0);if(dxHas('sting')){edx=Math.round(edx*.5);b.eh-=Math.round(b.em*.06*dxM('sting'));}b.ph-=edx;setTimeout(()=>anim('fE','atkL',350),450);setTimeout(()=>{anim('fP','hit',350);fx('p','-'+edx,'');},600);b.L.unshift('ศัตรูตอบโต้ '+edx);
+  let edx=ed+(b.xf&&b.xf.pat?dxPatE(b,ed):0);if(dxHas('sting')){edx=Math.round(edx*.5);b.eh-=Math.round(b.em*.06*dxM('sting'));}if(typeof bnIn==='function')edx=Math.round(edx*bnIn(b));b.ph-=edx;setTimeout(()=>anim('fE','atkL',350),450);setTimeout(()=>{anim('fP','hit',350);fx('p','-'+edx,'');},600);b.L.unshift('ศัตรูตอบโต้ '+edx);
   if(b.ph<=0){if(dxRevive(b))b.ph=Math.round(b.pm*Math.min(1,.5*dxM('lotus')));else{b.ph=0;endFight(0);}}
   updBattle();
 }
@@ -894,10 +894,11 @@ function ctStoryTry(ctx,s0){
   const st=S.ctStory.lost;if(S.ctStory.lastDepth===S.depth)return false;
   let L=null;
   if(st===0&&S.depth>=2&&Math.random()<.22){
-    L={ti:'รอยเท้าเล็กในพุ่มไม้',q:'{n}ได้ยินเสียงร้องเบา ๆ จากพุ่มไม้ มีสัตว์ตัวเล็กหลงทางอยู่ 🐾',o:[
+    L={ti:'รอยเท้าเล็กในพุ่มไม้',q:'{n}ได้ยินเสียงร้องเบา ๆ จากพุ่มไม้ มีสัตว์ตัวเล็กหลงทางอยู่ 🐾<br><small style="color:var(--mu)">🔗 โลกจะจดจำสิ่งที่คุณเลือก</small>',o:[
       {l:'🤝 เข้าไปช่วย (ใช้เงิน ฿40)',x:'{n}พาสัตว์ตัวเล็กออกจากพุ่มไม้และแบ่งอาหารให้',m:-40,b:4,n:'f'},
       {l:'🍖 แบ่งอาหารให้',x:'{n}แบ่งอาหารให้สัตว์ตัวเล็ก ก่อนช่วยชี้ทางกลับบ้าน',b:3,u:5},
-      {l:'🚶 เดินผ่านไป',x:'{n}ลังเลเล็กน้อย แต่เลือกเดินทางต่อ',b:-1}
+      {l:'🚶 เดินผ่านไป',x:'{n}ลังเลเล็กน้อย แต่เลือกเดินทางต่อ',b:-1},
+      {l:'🏡 พาไปส่งหาเพื่อน (พลัง −6)',x:'{n}พาสัตว์ตัวเล็กเดินไปส่งถึงมือ {p}',b:3,e:-6,rp:'escort'}
     ]};
   }else if(st===1&&S.depth>=3&&Math.random()<.34){
     L={ti:'เสียงเรียกจากเส้นทางเดิม',q:'ระหว่างทาง {n} ได้ยินเสียงคุ้น ๆ สัตว์ที่เคยช่วยกำลังถูกขวางทางอยู่ 🐾',o:[
@@ -981,7 +982,7 @@ function xResolve(q,ch){
 }
 
 const EI=[{id:'rice',ic:'🍙',n:'ข้าวปั้น',e:25,p:90},{id:'juice',ic:'🧃',n:'น้ำเกลือแร่',e:50,p:170},{id:'meat',ic:'🍖',n:'เนื้อย่าง',e:100,p:320}],BAGMAX=6;
-const xCost=()=>8+Math.floor(S.depth/5)+(soulQ('homebody')?1:0)-(soulQ('wanderer')?1:0)-(dxHas('pearl')?Math.round(dxM('pearl')):0)+mdEc()-emXc()-pfXc(),bagN=()=>EI.reduce((a,i)=>a+(S.bag[i.id]||0),0);
+const xCost=()=>8+Math.floor(S.depth/5)+(soulQ('homebody')?1:0)-(soulQ('wanderer')?1:0)-(dxHas('pearl')?Math.round(dxM('pearl')):0)+mdEc()-emXc()-pfXc()-(typeof bnXc==='function'?bnXc():0),bagN=()=>EI.reduce((a,i)=>a+(S.bag[i.id]||0),0);
 function bagAdd(id){if(bagN()>=BAGMAX)return 0;S.bag[id]=(S.bag[id]||0)+1;return 1;}
 function xBagUI(){
   const e=$('xBag'),c=S.c;if(!e||!c)return;const n=bagN(),b=(f)=>`<div class="g" style="grid-template-columns:repeat(3,1fr)">${EI.map(f).join('')}</div>`;
@@ -1209,14 +1210,14 @@ function dxCodex(){
 }
 // ===== กล่องเก็บของ + ความสามารถของสะสม (สามัญ=+สเตตัส · หายาก=เอฟเฟกต์พิเศษ · มหากาพย์=ความสามารถใหม่ · ตำนาน=โกง) =====
 const dxHas=id=>(dx().eq||[]).includes(id);
-const dxBonus=k=>(dx().eq||[]).reduce((a,id)=>a+((ABL[id]&&ABL[id][2]&&ABL[id][2][k])||0)*dxM(id),0);
+const dxBonus=k=>(dx().eq||[]).reduce((a,id)=>a+((ABL[id]&&ABL[id][2]&&ABL[id][2][k])||0)*dxM(id),0)+(typeof bnStat==='function'?bnStat(k):0);
 function dxRevive(b){const R=dx().run;if(b.xf&&dxHas('lotus')&&!R.rv){R.rv=1;b.L.unshift('🪷 บัวหลับปลุกชีพ! ลุกขึ้นสู้ต่อ');return 1;}return 0;}
 function dxInv(){
   const D=dx(),eq=D.eq=D.eq||[],own=COL.filter(x=>D.col[x[0]]);
-  const row=x=>{const a=ABL[x[0]],r=RAR[a[0]],on=eq.includes(x[0]);return `<div class="card" style="text-align:left;border-left:6px solid ${r[1]}"><b>${x[1]} ${x[2]}</b> <small style="color:${r[1]}">${r[0]}</small><small> · Lv${dxLv(x[0])}${D.col[x[0]]>=5?' (สูงสุด)':''} · ซ้ำ ${D.col[x[0]]} ใบ</small><div class="log" style="margin:4px 0">${a[1]}</div><button class="btn ${on?'on':''}" style="padding:3px 10px" onclick="dxEq('${x[0]}')">${on?'✅ สวมอยู่ (กดถอด)':'สวมใส่'}</button></div>`;};
+  const row=x=>{const a=ABL[x[0]],r=RAR[a[0]],on=eq.includes(x[0]);return `<div class="card" style="text-align:left;border-left:6px solid ${r[1]}"><b>${x[1]} ${x[2]}</b> <small style="color:${r[1]}">${r[0]}</small><small> · Lv${dxLv(x[0])}${D.col[x[0]]>=5?' (สูงสุด)':''} · ซ้ำ ${D.col[x[0]]} ใบ</small><div class="log" style="margin:4px 0">${a[1]}${typeof bnItemLine==='function'?bnItemLine(x[0]):''}</div><button class="btn ${on?'on':''}" style="padding:3px 10px" onclick="dxEq('${x[0]}')">${on?'✅ สวมอยู่ (กดถอด)':'สวมใส่'}</button></div>`;};
   const it=Object.entries(S.items).filter(([,v])=>v>0).map(([k,v])=>{const i=ITM.find(z=>z.id===k);return i?`${i.ic}${i.n}×${v}`:'';}).join(' · ');
   const bag=EI.filter(i=>S.bag[i.id]>0).map(i=>`${i.ic}${i.n}×${S.bag[i.id]}`).join(' · ');
-  xOv(`<b>🎒 กล่องเก็บของ</b><div class="log">สวมใส่ได้ ${eq.length}/3 ช่อง · ให้พลังเฉพาะตอนสวมใส่ · ของซ้ำอัปเกรด +25% ต่อใบ (สูงสุด Lv5)</div>`+(own.length?own.map(row).join(''):'<div class="log">ยังไม่มีของสะสม — ลองสำรวจพื้นที่ลับ ห้องสมบัติ และสู้บอส</div>')+`<div class="card" style="text-align:left"><b>ของใช้</b><div class="log">🍱 ${bag||'ไม่มีอาหารในกระเป๋า'}<br>🗝️×${D.inv.key||0} · 🧥×${D.inv.cloak||0}<br>${it||'ยังไม่มีของโบราณ'}</div></div><div class="g"><button class="btn" onclick="openExp()">🧭 กลับไปสำรวจ</button><button class="btn" onclick="closeX()">ปิด</button></div>`);
+  xOv(`<b>🎒 กล่องเก็บของ</b><div class="log">สวมใส่ได้ ${eq.length}/3 ช่อง · ให้พลังเฉพาะตอนสวมใส่ · ของซ้ำอัปเกรด +25% ต่อใบ (สูงสุด Lv5)</div>`+(typeof bnPanel==='function'?bnPanel():'')+(own.length?own.map(row).join(''):'<div class="log">ยังไม่มีของสะสม — ลองสำรวจพื้นที่ลับ ห้องสมบัติ และสู้บอส</div>')+`<div class="card" style="text-align:left"><b>ของใช้</b><div class="log">🍱 ${bag||'ไม่มีอาหารในกระเป๋า'}<br>🗝️×${D.inv.key||0} · 🧥×${D.inv.cloak||0}<br>${it||'ยังไม่มีของโบราณ'}</div></div><div class="g"><button class="btn" onclick="openExp()">🧭 กลับไปสำรวจ</button><button class="btn" onclick="closeX()">ปิด</button></div>`);
 }
 function dxEq(id){const D=dx(),e=D.eq=D.eq||[],i=e.indexOf(id);if(i>=0)e.splice(i,1);else{if(e.length>=3)e.shift();e.push(id);}saveGame();dxInv();}
 // ===== สัตว์ออกสำรวจ = ไม่อยู่บ้าน · ฝึกเอง (ช้า) vs สั่งฝึก (มินิเกมประเภทละ 1) =====
