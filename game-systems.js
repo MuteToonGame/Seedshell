@@ -2321,3 +2321,127 @@ bbUI=function(b){
   <div class="log"><small>${b.cmd?'รอบถัดไป: คำสั่งที่เลือก':'ไม่เลือก = โจมตีปกติ'}</small></div>`;
 };
 }
+
+// ################ social-bond ################
+// ===== social-bond · Phase 2: ความสัมพันธ์ระหว่างสัตว์ที่ "มีเรื่องราว" — ต่อยอดจาก bonds (S.rl) ไม่สร้างซ้ำ · โหลดหลังสุด =====
+// ประเภท: 💞เพื่อนสนิท · 💚เพื่อน · ⚔️คู่แข่ง · 🔥คู่กัด(สนิทแต่ก็แข่ง) · 🧭เพื่อนร่วมผจญภัย · 🆘ผู้ช่วยเหลือ · 🤝คู่หู — เปลี่ยนไปตามสิ่งที่เกิดขึ้นจริง
+// เพิ่ม: ชวนเพื่อนไปสำรวจด้วย (เลือกที่ค่าย) · ช่วยกันบ่อย→ปลดล็อก "ท่าช่วยเหลือพิเศษ" + ความทรงจำร่วม + บทสนทนาเฉพาะ · คู่แข่งซ้อมด้วยกันฝึกได้ดีขึ้นแต่ทะเลาะได้ · แย่งความสนใจ
+// ประวัติความสัมพันธ์ (เพื่อนกันมาตั้งแต่รุ่นที่ N) ส่งต่อข้ามรุ่น · เก็บใน S.rl[ชื่อ]: sm=ความทรงจำร่วม tl=ไทม์ไลน์ g0=รุ่นที่เจอกัน qr=ทะเลาะ tr=ซ้อมด้วยกัน ast=ท่าช่วยเหลือ
+{
+const TG2={best:['💞','เพื่อนสนิท'],friend:['💚','เพื่อน'],rival:['⚔️','คู่แข่ง'],frenemy:['🔥','คู่กัด'],mate:['🧭','เพื่อนร่วมผจญภัย'],helper:['🆘','ผู้ช่วยเหลือ'],duo:['🤝','คู่หู']};
+const AST={guard:['💞','ปกป้องกัน','ถ้า HP ต่ำ ช่วยรับแทนและฟื้นให้ 20% (ครั้งเดียวต่อศึก)'],lift:['🆘','ฉุดขึ้น','ถ้า HP ต่ำมาก ฉุดขึ้นมาและฟื้นให้ 30% (ครั้งเดียวต่อศึก)'],combo:['🤝','ท่าประสาน','รอบที่ 2 ของศึก เข้าตีประสานดาเมจ 10% ของเลือดศัตรู'],pride:['⚔️','ศึกชิงเกียรติ','3 รอบแรกของศึก ตีแรงขึ้น 30% เพราะไม่ยอมแพ้กัน']};
+const sbR=name=>bl()[name];
+function sbEns(r){r.sm=r.sm||[];r.tl=r.tl||[];if(r.g0==null)r.g0=S.gen|0||1;r.qr|=0;r.tr|=0;return r;}
+const sbTL=(r,t)=>{sbEns(r);r.tl.unshift({d:S.day,g:S.gen,t});r.tl=r.tl.slice(0,10);};
+function sbTags(r){const T=blT(r),B=blB(r),t=[];
+  if(T!=='es'&&T!=='ri'&&r.af>=30&&r.rv>=25)t.push('frenemy');else if(T==='be')t.push('best');else if(T==='fr')t.push('friend');else if(T==='ri')t.push('rival');
+  if(r.sh>=4&&r.af>=25)t.push('mate');if(B.help)t.push('helper');if(B.duo)t.push('duo');return t;}
+const sbPrim=r=>sbTags(r).find(x=>['best','friend','rival','frenemy'].includes(x))||'friend';
+const sbName=r=>sbTags(r).map(x=>TG2[x][0]+TG2[x][1]).join(' ');
+const MEM=[
+ {id:'first',f:r=>r.sh>=3,t:r=>`ออกผจญภัยด้วยกันกับ ${r.ic}${r.n}จนเริ่มเข้าขากัน`},
+ {id:'saved',f:r=>r.gv>=3,t:r=>`ช่วย ${r.ic}${r.n}ไว้หลายครั้งจนอีกฝ่ายวางใจ`},
+ {id:'saver',f:r=>r.hp>=2,t:r=>`วันที่ ${r.ic}${r.n}ยื่นมือมาช่วยในตอนที่เราแย่`},
+ {id:'duel',f:r=>r.rv>=40,t:r=>`ประลองกับ ${r.ic}${r.n}จนต่างฝ่ายต่างยอมรับฝีมือกัน`},
+ {id:'peace',f:r=>r.qr>=1&&r.af>=50,t:r=>`ทะเลาะกับ ${r.ic}${r.n}แล้วคืนดีกันได้`},
+ {id:'legacy',f:r=>(S.gen|0)>(r.g0|0)&&r.af>=40,t:r=>`เป็นเพื่อนกับ ${r.ic}${r.n}มาตั้งแต่รุ่นที่ ${r.g0}`}
+];
+function sbAstOf(r){const t=sbTags(r);return t.includes('frenemy')||t.includes('rival')?'pride':t.includes('helper')?'lift':t.includes('mate')||t.includes('duo')?'combo':'guard';}
+function sbCheck(r,quiet){
+  sbEns(r);if(!r.met)return;
+  MEM.forEach(m=>{if(!r.sm.some(x=>x.id===m.id)&&m.f(r)){const t=m.t(r);r.sm.push({id:m.id,t,d:S.day,g:S.gen});sbTL(r,'🌟 '+t);if(!quiet){log(`📔 ความทรงจำร่วม: ${t}`);try{soulMem('shared',t,4,'📔','friend');}catch(e){}}}});
+  if(!r.ast&&(r.gv+r.hp)>=3&&r.af>=40){r.ast=sbAstOf(r);const A=AST[r.ast];sbTL(r,`✨ ปลดล็อก “${A[1]}”`);if(!quiet)log(`✨ ${S.c.name}กับ ${r.ic}${r.n}ปลดล็อกท่าช่วยเหลือพิเศษ “${A[1]}”! (${A[2]})`);}
+}
+// ----- ผูกกับระบบเดิม -----
+{
+  const _bs=blSet;blSet=function(r,d){const a=sbEns(r)&&sbTags(r).join();_bs.apply(this,arguments);try{if(r.met){const b=sbTags(r);if(b.join()!==a){const nm=sbName(r);if(nm)sbTL(r,'เปลี่ยนเป็น '+nm);}sbCheck(r);}}catch(e){}};
+  const _bt=blTouch;blTouch=function(){const r=_bt.apply(this,arguments);try{if(r)sbEns(r);}catch(e){}return r;};
+  const _ch=cqHatch;cqHatch=function(c,L){const pre=Object.values(bl()).filter(r=>r.af>=60);_ch.apply(this,arguments);
+    try{pre.forEach(r=>{r.af=Math.max(r.af,45);sbTL(r,`ส่งต่อมิตรภาพถึงรุ่นที่ ${S.gen}`);log(`💞 ${r.ic}${r.n}เพื่อนของรุ่นก่อนมาทักทายไข่ใบใหม่ — มิตรภาพถูกส่งต่อ`);sbCheck(r);});}catch(e){}};
+  // ฝึกพร้อมกับคู่ซ้อม: ฝึกได้ดีขึ้น +40% (ใช้หมดแล้วหมดไป)
+  const _da=doAct;doAct=function(c){const k={read:'int',lift:'str',run:'spd'}[c.act],v0=k?c[k]:0;_da.apply(this,arguments);try{if(k&&c.sbTr>0&&c[k]>v0){c[k]+=(c[k]-v0)*.4;c.sbTr--;if(!c.sbTr)log('🏋️ ผลของการซ้อมคู่หมดแล้ว');}}catch(e){}};
+}
+// ----- บทสนทนาเฉพาะ -----
+const POOL={best:['“อยู่ด้วยกันแบบนี้สบายใจที่สุดเลย”','“ถ้าไม่มีนาย ฉันคงเดินมาไม่ถึงตรงนี้”','“รอบหน้าไปไหนก็ชวนฉันด้วยนะ”'],friend:['“วันนี้อากาศดีนะ เดินต่อกันเถอะ”','“ขอแบ่งขนมนี่ครึ่งหนึ่งนะ”','“ฉันชอบเดินกับนายนะ”'],rival:['“ฉันจะไม่แพ้นายแน่ รอดูไว้”','“วันนี้ฉันต้องเจอของดีกว่านายให้ได้”','“อย่าชะล่าใจนะ ฉันฝึกหนักมาตลอด”'],frenemy:['“หึ… ก็ไม่เลวนะ แต่ครั้งหน้าฉันจะเก่งกว่า”','“อย่าคิดว่าช่วยฉันแล้วจะเอาชนะได้ล่ะ”','“ถึงจะหมั่นไส้ แต่ถ้านายไม่อยู่ก็เหงานะ”'],mate:['“เราลุยมาด้วยกันหลายที่แล้วนะ”','“จังหวะของเราเริ่มเข้ากันแล้ว”'],helper:['“คราวนี้ฉันจะเป็นฝ่ายคอยดูแลนายเอง”']};
+function sbLine(r){sbEns(r);const t=sbTags(r),P=[...(POOL[sbPrim(r)]||[]),...(t.includes('mate')?POOL.mate:[]),...(t.includes('helper')?POOL.helper:[])];
+  if((S.gen|0)>(r.g0|0))P.push(`“เรารู้จักกันมาตั้งแต่รุ่นที่ ${r.g0} แล้วนะ… นานจริงๆ”`,`“ไม่คิดว่าเราจะอยู่ข้างกันมาหลายรุ่นขนาดนี้”`);
+  if(r.gv>=3)P.push(`“ขอบใจที่ช่วยฉันไว้ตั้ง ${Math.round(r.gv)} ครั้งแน่ะ”`);if(r.hp>=2)P.push('“ครั้งก่อนฉันก็เคยช่วยนายไว้นะ จำได้ไหม?”');
+  if(r.sm.some(x=>x.id==='peace'))P.push('“ดีนะที่เราคืนดีกันได้ครั้งนั้น”');
+  return `${r.ic}${r.n}: ${pk(P)}`;}
+// ----- เหตุการณ์ระหว่างสำรวจกับเพื่อนร่วมทาง -----
+function sbEvHelp(r){const c=S.c,riv=sbPrim(r)==='rival'||sbPrim(r)==='frenemy';return{ti:'เพื่อนเดินไม่ไหว',q:`${r.ic}${r.n}เดินกะเผลก… ขาสะดุดรากไม้ระหว่างทาง${riv?' (แม้จะเป็นคู่กัด แต่ก็ปล่อยไว้ไม่ได้)':''}`,o:[
+  {l:'🫂 ประคองไปด้วยกัน (พลัง −8)',n:'f',e:-8,fn:()=>{cE(-8);blSet(r,{af:6,gv:1,rv:riv?-3:0});return `${r.n}ซึ้งใจ “ขอบใจนะ…” (ช่วยเขาแล้ว ${Math.round(r.gv)} ครั้ง)`;}},
+  {l:'🍙 แบ่งอาหารให้ (อิ่ม −10)',n:'f',u:-10,fn:()=>{c.hun=cl(c.hun-10);blSet(r,{af:4,gv:1});return `${r.n}กินแล้วเดินต่อได้ ยิ้มให้เบาๆ`;}},
+  {l:'🚶 รอให้ฟื้นเอง',fl:1,fn:()=>{blSet(r,{af:-4});return `${r.n}เดินตามมาเงียบๆ… แต่ท่าทางผิดหวัง`;}}]};}
+function sbEvTalk(r){const c=S.c;return{ti:'คุยกันระหว่างทาง',q:sbLine(r),o:[
+  {l:'💬 เล่าเรื่องเก่าๆ ด้วยกัน',n:'f',b:1,fn:()=>{blSet(r,{af:4});return `ทั้งคู่หัวเราะกับเรื่องเก่าๆ ${r.n}ดูสบายใจขึ้น`;}},
+  {l:'😏 หยอกกลับ',fn:()=>{blSet(r,{af:2,rv:['rival','frenemy'].includes(sbPrim(r))?3:0});return `${r.n}ค้อนให้ แต่มุมปากกระตุกขึ้น`;}},
+  {l:'🤫 ฟังเงียบๆ',fn:()=>{blSet(r,{af:2});cE(3);return `เดินเงียบๆ ข้างกัน… รู้สึกสงบดี (พลัง +3)`;}}]};}
+function sbEvQuarrel(r){const c=S.c;return{ti:'ทะเลาะกันกลางทาง',q:`🔥 ${r.ic}${r.n}กับ ${c.name}ทะเลาะกันเรื่องใครเจอของก่อน เสียงดังจนนกแตกฮือ`,o:[
+  {l:'🙏 ขอโทษก่อน',n:'f',b:1,fn:()=>{r.qr=(r.qr|0)+1;blSet(r,{af:6,rv:-4});return `${r.n}อึ้งไปครู่ แล้วบ่นเบาๆ “…ก็ไม่ได้โกรธจริงจังหรอก”`;}},
+  {l:'💢 เถียงกลับ',fl:1,fn:()=>{r.qr=(r.qr|0)+1;blSet(r,{af:-5,rv:6});cE(-5);return `ต่างคนต่างไม่ยอม บรรยากาศร้อนระอุ (พลัง −5)`;}},
+  {l:'🏁 ท้าแข่งตัดสิน (พลัง −6)',c:'?',e:-6,fn:()=>{r.pw=r.pw||blPw();cE(-6);const P=c.str+c.spd+c.int,w=Math.random()<cl(.5+(P-r.pw)*.02,.15,.85);r.qr=(r.qr|0)+1;r.pw+=1;
+    if(w){blSet(r,{rv:4,af:4});return `ชนะ! ${r.n}ยอมรับ “รอบหน้าไม่แพ้แน่”`;}blSet(r,{rv:7,af:2});return `แพ้… ${r.n}ยิ้มเยาะ แต่ก็ตบไหล่เบาๆ`;}}]};}
+function sbExp(ctx,s0){
+  const Q=cq(),c=S.c,D=dx(),r=D.comp&&sbR(D.comp);if(!c||!r||!r.met||Q.last===S.depth||S.depth<2||Math.random()>.14)return false;
+  const t=sbPrim(r),conf=t==='rival'||t==='frenemy'||(r.af<40&&r.rv>=10);
+  const L=conf&&Math.random()<.45?sbEvQuarrel(r):Math.random()<.55?sbEvHelp(r):sbEvTalk(r);Q.last=S.depth;XQ={L,ctx,s0,cq:'sb'};xAsk();return true;}
+{const _c=cqExp;cqExp=function(ctx,s0){try{if(sbExp(ctx,s0))return true;}catch(e){}return _c.apply(this,arguments);};}
+// ----- ผลระหว่างทริป: เดินด้วยกัน · ท่าช่วยเหลือในศึก -----
+{
+  const comp=()=>{const n=dx().comp,r=n&&sbR(n);return r&&r.met?r:null;};
+  const _g=xGo;xGo=function(){
+    try{const r=comp();if(r&&S.depth>0&&!xWhy()){const R=dx().run;R.sbF=(R.sbF|0)+1;
+      if(['best','friend'].includes(sbPrim(r))){S.c.en=cl(S.c.en+1);}
+      if(R.sbF%3===0){blSet(r,{sh:1,af:1});if(Math.random()<.4)dxPre+=`${sbLine(r)}<br>`;}}}catch(e){}
+    return _g.apply(this,arguments);};
+  const _bb=bbRound;bbRound=function(){
+    const b=S.b,r=comp();if(!b||!b.xf||b.end||!r)return _bb.apply(this,arguments);
+    b.sbN=(b.sbN|0)+1;const t=sbTags(r),L=s=>b.L.unshift(s);
+    if(!t.includes('rival')&&sbPrim(r)!=='frenemy'&&b.sbN%3===0){b.sbCov=1;L(`${r.ic}${r.n}ช่วยบังให้ ดาเมจรอบนี้ลดลง`);}
+    const A=r.ast;
+    if(A==='pride'&&b.sbN<=3){b.sbPr=1;if(b.sbN===1)L(`⚔️ ${r.ic}${r.n}ส่งสายตาท้าทาย — ไม่ยอมแพ้กัน! (ตีแรงขึ้น)`);}else b.sbPr=0;
+    if(A==='combo'&&b.sbN===2){const d=Math.round(b.em*.1);b.eh-=d;L(`🤝 ${S.c.name}กับ ${r.ic}${r.n}ใช้ท่าประสาน! −${d}`);}
+    if(A==='guard'&&!b.sbU&&b.ph<b.pm*.4){b.sbU=1;b.ph=Math.min(b.pm,b.ph+Math.round(b.pm*.2));L(`💞 ${r.ic}${r.n}ใช้ “ปกป้องกัน” รับแทนและฟื้นกำลังให้!`);}
+    if(A==='lift'&&!b.sbU&&b.ph<b.pm*.35){b.sbU=1;b.ph=Math.min(b.pm,b.ph+Math.round(b.pm*.3));L(`🆘 ${r.ic}${r.n}ใช้ “ฉุดขึ้น” ดึงขึ้นมาสู้ต่อ!`);}
+    const x=_bb.apply(this,arguments);b.sbCov=0;return x;};
+  const _bi=window.bnIn;window.bnIn=function(b){return _bi.apply(this,arguments)*(b&&b.sbCov?.75:1);};
+  const _bo=window.bnOut;window.bnOut=function(b){return _bo.apply(this,arguments)*(b&&b.sbPr?1.3:1);};
+  const _fe=xFightEnd;xFightEnd=function(w,b){const x=_fe.apply(this,arguments);
+    try{const r=comp();if(r&&b&&b.xf&&w){blSet(r,{sh:b.xf.boss?2:1,af:b.xf.boss?3:1});}}catch(e){}return x;};
+  const _bk=xBack;xBack=function(){
+    try{const r=comp();if(r&&!XQ&&S.depth>0&&(dx().run.sbF|0)>=3){dxPre+=`🧭 ${S.c.name}กับ ${r.ic}${r.n}เดินทางด้วยกัน ${dx().run.sbF} ชั้น — ความสัมพันธ์: ${sbName(r)}<br>`;}}catch(e){}
+    return _bk.apply(this,arguments);};
+}
+// ----- เหตุการณ์ที่บ้าน: ซ้อมด้วยกัน · แย่งความสนใจ -----
+function sbHome(){
+  const c=S.c,R=Object.values(bl()).filter(r=>r.met&&(r.cd|0)<=S.day&&r.af+r.rv>=25);if(!R.length)return null;
+  const close=R.filter(r=>r.af>=40);
+  if(close.length>=2&&Math.random()<.4){const a=pk(close),b=pk(close.filter(x=>x!==a));a.cd=b.cd=S.day+5;
+    return{t:`😤 ${a.ic}${a.n}ทำหน้าบึ้ง… เพราะ ${c.name}ใช้เวลากับ ${b.ic}${b.n}บ่อยกว่า`,a:[
+      {l:`🫶 ใช้เวลากับ ${a.n}`,f:()=>{blSet(a,{af:6});blSet(b,{af:-2});log(`${a.n}ยิ้มกว้างขึ้นทันที`);}},
+      {l:'🎈 ชวนเล่นด้วยกันทั้งคู่ (ปัญญา)',f:()=>{if(cqCk('int')){blSet(a,{af:3});blSet(b,{af:3});log('ทั้งสามเล่นกันสนุก หายงอนกันหมด');}else{blSet(a,{af:-1});blSet(b,{af:-1});log('ชวนแล้วเก้ๆ กังๆ ต่างคนต่างไม่ค่อยสนุก');}}},
+      {l:'🤷 ปล่อยให้เคลียร์กันเอง',f:()=>{blSet(a,{af:-4,rv:3});log(`${a.n}เดินออกไปเงียบๆ`);}}]};}
+  const r=pk(R.filter(x=>['rival','frenemy','friend','best'].includes(sbPrim(x))));if(!r)return null;r.cd=S.day+4;const conf=['rival','frenemy'].includes(sbPrim(r));
+  return{t:`${r.ic}${r.n}${conf?'มาท้าซ้อมแข่งกัน “ใครฝึกได้ดีกว่ากัน!”':'ชวนซ้อมด้วยกัน “ไปฝึกด้วยกันไหม?”'}`,a:[
+    {l:'🏋️ ซ้อมด้วยกัน (พลัง −10)',f:()=>{c.en=cl(c.en-10);c.sbTr=3;r.tr=(r.tr|0)+1;blSet(r,{af:3,rv:conf?4:0});log(`💪 ซ้อมกับ ${r.n}ได้ผลดี! ฝึกครั้งต่อไป ×1.4 อีก 3 ครั้ง`);
+      if(conf&&Math.random()<.3){r.qr=(r.qr|0)+1;blSet(r,{af:-4,rv:3});c.bond=cl(c.bond-1);log(`…แต่แล้วก็ทะเลาะกันเรื่องใครเก่งกว่า ${r.n}แย่งความสนใจของเจ้านายไปซะอย่างนั้น`);}else sbTL(r,'ซ้อมด้วยกัน');}},
+    {l:'🙅 วันนี้ไม่ซ้อม',f:()=>{blSet(r,{af:-1});log(`${r.n}พยักหน้ารับ แต่ท่าทางเสียดาย`);}}]};
+}
+{const _h=cqHome;cqHome=function(force){const e=_h.apply(this,arguments);if(e||force)return e;return Math.random()<.22?sbHome():null;};}
+// ----- UI: เลือกเพื่อนร่วมทางที่ค่าย + สมุดความสัมพันธ์ -----
+window.sbSetComp=n=>{dx().comp=n||'';saveGame();sbCompUI(1);};
+function sbCompUI(re){
+  const x=$('xRes');if(!x)return;let e=$('sbComp');if(e&&!re)return;
+  const cand=Object.values(bl()).filter(r=>r.met>=2&&(r.af>=20||r.rv>=30)).sort((a,b)=>(b.af+b.rv)-(a.af+a.rv)).slice(0,4);if(!cand.length&&!e)return;
+  const cur=dx().comp,inTrip=S.depth>0;
+  const h=`<div id="sbComp" class="log" style="text-align:left;padding:6px"><b>🧭 ชวนเพื่อนไปด้วยไหม?</b> <small>(เดินด้วยกันความสัมพันธ์เติบโต · เพื่อนช่วยบังในศึก · คู่แข่งทำให้ฮึกเหิมแต่ทะเลาะได้)</small><div class="g" style="grid-template-columns:repeat(${cand.length+1},1fr);margin-top:4px"><button class="btn ${!cur?'on':''}" style="padding:4px 0;font-size:11px" ${inTrip?'disabled':''} onclick="sbSetComp('')">🚶<br>ไปคนเดียว</button>${cand.map(r=>`<button class="btn ${cur===r.n?'on':''}" style="padding:4px 0;font-size:11px" ${inTrip?'disabled':''} onclick="sbSetComp('${r.n.replace(/'/g,"\\'")}')">${r.ic}<br>${r.n}<br>${TG2[sbPrim(r)][0]}</button>`).join('')}</div>${inTrip?'<small>เปลี่ยนไม่ได้ระหว่างทริป</small>':''}</div>`;
+  if(e)e.outerHTML=h;else x.insertAdjacentHTML('beforebegin',h);
+}
+{const _o=openExp;openExp=function(){const r=_o.apply(this,arguments);try{sbCompUI();}catch(e){}return r;};}
+blPanel=function(){
+  const R=Object.values(bl()).sort((a,b)=>(b.af+b.rv)-(a.af+a.rv)).slice(0,8);if(!R.length)return '';
+  return `<div class="card log" style="text-align:left;padding:8px"><b style="font-size:12px">🫂 ความสัมพันธ์</b>`+R.map(r=>{sbEns(r);sbCheck(r,1);const A=r.ast&&AST[r.ast],yrs=(S.gen|0)-(r.g0|0);
+    return `<div style="margin-top:6px">${r.ic} <b>${r.n}</b> ${sbName(r)}${dx().comp===r.n?' · 🧭ร่วมทางอยู่':''}<br><small>❤️${Math.round(r.af)}${r.rv>=10?' ⚔️'+Math.round(r.rv):''} · ช่วยเขา ${Math.round(r.gv)} · เขาช่วยเรา ${Math.round(r.hp)} · ผจญภัยด้วยกัน ${Math.round(r.sh)}${r.qr?' · ทะเลาะ '+r.qr:''}${r.tr?' · ซ้อมคู่ '+r.tr:''}<br>${yrs>0?`เป็นเพื่อนกันมา ${yrs+1} รุ่น (ตั้งแต่รุ่นที่ ${r.g0})`:`เจอกันครั้งแรกรุ่นที่ ${r.g0} · เจอกัน ${r.met} ครั้ง`}${A?`<br>✨ ท่าช่วยเหลือ: ${A[0]} ${A[1]} — ${A[2]}`:''}${r.sm.length?'<br>📔 '+r.sm.slice(-3).map(m=>m.t).join('<br>📔 '):''}${r.tl.length?`<br><i>ล่าสุด: ${r.tl[0].t}</i>`:''}</small></div>`;}).join('')+'</div>';
+};
+}
