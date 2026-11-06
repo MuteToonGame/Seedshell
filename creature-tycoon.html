@@ -652,7 +652,7 @@ function renderEvo(c){
   setH('evoPath',names.map((n,i)=>`<div class="chip ${i+1<c.stage?'done':i+1===c.stage?'on':''}">ร่าง ${i+1}<br>${n}</div>`).join('<span>›</span>'));
   const btn=$('btnCrystal'); btn.style.display='none'; let t='';
   if(c.stage<3){const d=EVO_AGE[c.stage+1]-c.age; t=c.stage===1?`ร่าง 2 ในอีก ${d} วัน`:`ร่าง 3 ในอีก ${d} วัน · สายตามค่าสูงสุด (ตอนนี้โน้มไป ${BR[lead(c)].ic} ${BR[lead(c)].n})`;}
-  else if(c.stage===3){t=`ร่าง 4 ต้องใช้ 💎 ผลึกตำนาน (มี ${S.crystal}) · ซื้อได้ที่ร้าน ฿${CRYSTAL_PRICE}`; btn.style.display='block'; btn.textContent='💎 ใช้ผลึก → ร่าง 4'; btn.disabled=S.crystal<1; btn.className=S.crystal>0?'btn on':'btn';}
+  else if(c.stage===3){t=`ร่าง 4 ต้องใช้ 💎 ผลึกตำนาน (มี ${S.crystal}) · ซื้อได้ที่ร้าน ฿${CRYSTAL_PRICE}`+(typeof tmTend==='function'?' · '+tmTend(c):''); btn.style.display='block'; btn.textContent='💎 ใช้ผลึก → ร่าง 4'; btn.disabled=S.crystal<1; btn.className=S.crystal>0?'btn on':'btn';}
   else t='👑 ถึงร่างสูงสุดแล้ว';
   $('evoInfo').textContent=t;
 }

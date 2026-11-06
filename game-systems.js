@@ -2445,3 +2445,24 @@ blPanel=function(){
     return `<div style="margin-top:6px">${r.ic} <b>${r.n}</b> ${sbName(r)}${dx().comp===r.n?' · 🧭ร่วมทางอยู่':''}<br><small>❤️${Math.round(r.af)}${r.rv>=10?' ⚔️'+Math.round(r.rv):''} · ช่วยเขา ${Math.round(r.gv)} · เขาช่วยเรา ${Math.round(r.hp)} · ผจญภัยด้วยกัน ${Math.round(r.sh)}${r.qr?' · ทะเลาะ '+r.qr:''}${r.tr?' · ซ้อมคู่ '+r.tr:''}<br>${yrs>0?`เป็นเพื่อนกันมา ${yrs+1} รุ่น (ตั้งแต่รุ่นที่ ${r.g0})`:`เจอกันครั้งแรกรุ่นที่ ${r.g0} · เจอกัน ${r.met} ครั้ง`}${A?`<br>✨ ท่าช่วยเหลือ: ${A[0]} ${A[1]} — ${A[2]}`:''}${r.sm.length?'<br>📔 '+r.sm.slice(-3).map(m=>m.t).join('<br>📔 '):''}${r.tl.length?`<br><i>ล่าสุด: ${r.tl[0].t}</i>`:''}</small></div>`;}).join('')+'</div>';
 };
 }
+
+// ################ temperament ################
+// ===== temperament · ร่างที่ 4 (ดุ/กลาง/ใจดี) ให้ "การเลี้ยง" มีผลจริง แต่ปล่อยสัตว์ตามนิสัยของมันเองก็ออกได้ครบ 3 แบบ =====
+// รูปที่ 4 ยังอ่านจากค่า soul.ax.kind ตอนใช้ผลึก (<−15 ดุ · >+15 ใจดี · กลาง) แต่เพิ่ม:
+// 1) นิสัยดั้งเดิม (k0 ที่สุ่มตอนเกิดสม่ำเสมอ ±45 → ตั้งต้นได้ครบทั้ง 3 แบบเท่าๆ กัน) คอยดึงค่ากลับวันละ TM_PULL — การเลี้ยงต้อง "ต่อเนื่อง" ถึงจะพาไปทางอื่น และเมื่อปล่อยเองสัตว์จะกลับไปหานิสัยของมัน
+// 2) แหล่งที่ผลักไปทางดุ (ที่เดิมแทบไม่มี): กินเนื้อ · ชนะศึก/บอส · ฝึกแรง  ·  ผลักไปทางใจดี: กินผัก/นม · อ่านหนังสือ (เพิ่มจากของเดิมที่ช่วยเหลือ/ให้อภัย/เล่นกับสัตว์)
+// 3) ในหน้าวิวัฒนาการมีบอก "แนวโน้มรูปที่ 4" ให้เห็นว่าการเลี้ยงกำลังพาไปทางไหน
+const TM_PULL=.08;
+{
+  const bandOf=k=>k<-15?'fierce':k>15?'kind':'neutral';
+  const push=d=>{try{if(S.c&&S.c.soul)soulShift({kind:d});}catch(e){}};
+  const _day=cqDay;cqDay=function(c){const r=_day.apply(this,arguments);
+    try{const so=c&&c.soul;if(so&&so.ax){if(so.k0==null)so.k0=so.ax.kind;so.ax.kind=Math.max(-100,Math.min(100,so.ax.kind+(so.k0-so.ax.kind)*TM_PULL));}}catch(e){}return r;};
+  const _h=cqHatch;cqHatch=function(c,L){const r=_h.apply(this,arguments);try{if(c.soul&&c.soul.ax)c.soul.k0=c.soul.ax.kind;}catch(e){}return r;};
+  const _fe=finishEat;finishEat=function(){const k=S.food&&S.food.k;const r=_fe.apply(this,arguments);push(k==='meat'?-1.2:k==='veg'?.6:k==='milk'?.8:0);return r;};
+  const _da=doAct;doAct=function(c){const a=c.act;const r=_da.apply(this,arguments);if(a==='lift')push(-.3);else if(a==='read')push(.3);return r;};
+  const _xe=xFightEnd;xFightEnd=function(w,b){const r=_xe.apply(this,arguments);if(w&&b&&b.xf)push(b.xf.boss?-2:-.4);return r;};
+  window.tmTend=c=>{const so=c.soul;if(!so||!so.ax)return '';const k=so.ax.kind,b=bandOf(k),n={fierce:'🔥 ดุ',neutral:'⚖️ กลาง',kind:'💗 ใจดี'}[b];
+    const hint=b==='neutral'?(k<0?`เหลืออีก ${Math.ceil(k+15)} ถึงจะเป็นดุ`:`เหลืออีก ${Math.ceil(15-k)} ถึงจะเป็นใจดี`):'';
+    return `แนวโน้มรูปที่ 4: ${n}${hint?' ('+hint+')':''}`;};
+}
