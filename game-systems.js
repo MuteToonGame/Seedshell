@@ -2650,7 +2650,7 @@ function maTick(c){
   const _dh=dxHome;dxHome=function(){const aw=S.depth>0,r=_dh.apply(this,arguments);try{if(aw&&S.c&&S.c.soul)maS(S.c).greet=S.tick;}catch(e){}return r;};
   const _cd=cqDay;cqDay=function(c){_cd.apply(this,arguments);try{const M=c.soul&&maS(c);if(M)Object.keys(M.hb).forEach(k=>{M.hb[k]*=.98;});}catch(e){}};
   const _ts=tapSpot;tapSpot=function(){try{if(S.c&&S.c.soul)maS(S.c).touch=S.tick;}catch(e){}return _ts.apply(this,arguments);};
-  const _ep=emPanel;emPanel=function(){let t='';try{t=maPanel();}catch(e){}return t+_ep.apply(this,arguments);};
+  const _ep=emPanel;emPanel=function(){const o=window.NB_ONLY;if(o&&o!=='ma')return _ep.apply(this,arguments);let t='';try{t=maPanel();}catch(e){}return o==='ma'?t:t+_ep.apply(this,arguments);};
   const _rd=render;render=function(){const r=_rd.apply(this,arguments);try{maEnv();}catch(e){}return r;};
   const _et=emTap;emTap=function(ev){
     const c=S.c;
@@ -2774,7 +2774,7 @@ function frInscr(c,ctx,s0){
   const _ev=evolve;evolve=function(){const p=S.c&&S.c.stage,r=_ev.apply(this,arguments);try{if(S.c&&S.c.stage>p)frOnEvo(S.c,p);}catch(e){console.error('fr evo',e);}return r;};
   const _uc=useCrystal;useCrystal=function(){const p=S.c&&S.c.stage,r=_uc.apply(this,arguments);try{if(S.c&&S.c.stage>p)frOnEvo(S.c,p);}catch(e){console.error('fr crystal',e);}return r;};
   const _ce=closeEvo;closeEvo=function(){const r=_ce.apply(this,arguments);try{if(FQ){const q=FQ;FQ=null;setTimeout(()=>frShow(q),250);}}catch(e){}return r;};
-  const _ep=emPanel;emPanel=function(){let t='';try{t=frPanel();}catch(e){}return t+_ep.apply(this,arguments);};
+  const _ep=emPanel;emPanel=function(){const o=window.NB_ONLY;if(o&&o!=='fr')return _ep.apply(this,arguments);let t='';try{t=frPanel();}catch(e){}return o==='fr'?t:t+_ep.apply(this,arguments);};
   const _et=emTap;emTap=function(){const c=S.c,b0=c&&c.bond,r=_et.apply(this,arguments);try{if(c&&c.soul&&c.stage===1&&c.bond>b0)c.bond=cl(c.bond+(c.bond-b0)*.5);}catch(e){}return r;};
   const pe=document.getElementById('pet');if(pe){pe.removeEventListener('click',_et);pe.addEventListener('click',emTap);}
 }
@@ -2882,10 +2882,13 @@ window.famGuar=()=>fsAll().some(f=>f.k==='secret'&&tier(f)>=3);
 window.famParent=c=>{const F=famS();return F.par&&(S.gen|0)>=2&&(c.age|0)<20?F.par.n:null;};
 
 // ---------- แผง + สมุดตระกูล ----------
+function famRowsArr(){const fs=fsAll();return fs.map(f=>{const t=tier(f);return `<div style="font-size:11px;margin:4px 0">${f.ic} <b>${f.n}</b> <small>· พบรุ่น ${f.g}</small><br>${TLI.map((x,i)=>i<=t?x:`<span style="opacity:.3">${x}</span>`).join('')} ${TLN[t]}${t<3?`<br><small style="opacity:.75">รุ่นหน้า ${TLI[t+1]} ${t+1===1?'ฝันเป็นคำใบ้':t+1===2?SC[f.k]:SP[f.k]}</small>`:''}</div>`;});}
+window.famRowsArr=famRowsArr;
 function famPanel(){
   const c=S.c;if(!c||!c.soul)return '';const F=famS(),fs=fsAll();if(!fs.length&&(S.gen|0)<2)return '';
   const cap=Math.round((capOf('str')/CAP0-1)*100),NX=[null,HINT,SC,SP];
-  const rows=fs.slice(0,8).map(f=>{const t=tier(f);return `<div style="font-size:11px;margin:4px 0">${f.ic} <b>${f.n}</b> <small>· พบรุ่น ${f.g}</small><br>${TLI.map((x,i)=>i<=t?x:`<span style="opacity:.3">${x}</span>`).join('')} ${TLN[t]}${t<3?`<br><small style="opacity:.75">รุ่นหน้า ${TLI[t+1]} ${t+1===1?'ฝันเป็นคำใบ้':t+1===2?SC[f.k]:SP[f.k]}</small>`:''}</div>`;}).join('');
+  const rows=famRowsArr().slice(0,8).join('');
+  const _unused=fs.map(f=>{const t=tier(f);return `<div style="font-size:11px;margin:4px 0">${f.ic} <b>${f.n}</b> <small>· พบรุ่น ${f.g}</small><br>${TLI.map((x,i)=>i<=t?x:`<span style="opacity:.3">${x}</span>`).join('')} ${TLN[t]}${t<3?`<br><small style="opacity:.75">รุ่นหน้า ${TLI[t+1]} ${t+1===1?'ฝันเป็นคำใบ้':t+1===2?SC[f.k]:SP[f.k]}</small>`:''}</div>`;}).join('');
   return `<div class="card log" style="text-align:left;padding:8px"><b style="font-size:12px">👪 มรดกของตระกูล</b><div style="font-size:11px;margin:3px 0">รุ่นที่ ${S.gen} · เพดานสเตตัส +${cap}%${F.par?' · รุ่นก่อน '+F.par.n:''}${F.inh?' · ส่งต่อ '+F.inh:''}</div>`
    +(rows||'<small>ยังไม่มีการค้นพบ — สิ่งที่พบในชีวิตนี้จะถูกบันทึกเป็นของตระกูลทันที</small>')
    +`<div style="font-size:10px;opacity:.7;margin:4px 0">🔍พบ → 💭คำใบ้ → 🧭ทางลัด → ✨เหตุการณ์พิเศษ (ก้าวหน้าทุกรุ่น)</div><button class="btn" style="font-size:11px;padding:4px 8px" onclick="famBook()">📚 ตำนานตระกูล</button></div>`;
@@ -2913,7 +2916,7 @@ window.famBook=function(){
   const _uc=useCrystal;useCrystal=function(){const p=S.c&&S.c.stage,r=_uc.apply(this,arguments);try{if(S.c&&S.c.stage>p)famEcho(S.c);}catch(e){}return r;};
   const _da=doAct;doAct=function(c){const F=famS(),k=F.foc&&(S.gen|0)>=2&&c&&{read:'int',lift:'str',run:'spd'}[c.act],v0=k?c[k]:0;_da.apply(this,arguments);
     try{if(k===F.foc&&c[k]>v0){const d=(c[k]-v0)*Math.min(.3,.05*Math.min(6,F.gens));if(c.nocap||c[k]+d<=capOf(k))c[k]+=d;}}catch(e){}};
-  const _ep=emPanel;emPanel=function(){let t='';try{t=famPanel();}catch(e){}return t+_ep.apply(this,arguments);};
+  const _ep=emPanel;emPanel=function(){const o=window.NB_ONLY;if(o&&o!=='fam')return _ep.apply(this,arguments);let t='';try{t=famPanel();}catch(e){}return o==='fam'?t:t+_ep.apply(this,arguments);};
 }
 }
 
@@ -3004,8 +3007,8 @@ const show=(r,c)=>{if(!r)return;setSay(r.t,3200);if(r.log)log(r.t);};
   const _die=die;die=function(){try{const c=S.c;if(c&&c.ae&&c.ae.tech){const F=S.fam||(S.fam={});F.tech=Object.assign({},c.ae.tech);}}catch(e){}return _die.apply(this,arguments);};
   const _h=hatch;hatch=function(){const r=_h.apply(this,arguments);try{const F=S.fam;if(S.c&&F&&F.tech&&(S.gen|0)>=2){const A=aeS(S.c);let n=0;Object.keys(F.tech).forEach(k=>{const v=Math.ceil((F.tech[k]|0)/2);if(v>0){A.tech[k]=v;n++;}});if(n)log('📚 สืบทอดเทคนิคการฝึกจากรุ่นก่อนบางส่วน');}}catch(e){}return r;};
   // แผงสมุดบันทึก
-  const _ep=emPanel;emPanel=function(){let t='';try{const c=S.c;if(c&&c.soul){const A=aeS(c),rows=Object.keys(TECH).filter(k=>A.tech[k]).map(k=>`${TN[k]}: ${TECH[k].slice(0,A.tech[k]).join(' · ')}`);
-      if(rows.length||A.pg)t=`<div class="card log" style="text-align:left;padding:8px"><b style="font-size:12px">💡 เทคนิคและความรู้</b>${rows.map(r=>`<div style="font-size:11px;margin:3px 0">${r}</div>`).join('')}${A.pg?`<div style="font-size:11px">📜 หนังสือโบราณ ${Math.min(8,A.pg)}/8 หน้า</div>`:''}</div>`;}}catch(e){}return t+_ep.apply(this,arguments);};
+  const _ep=emPanel;emPanel=function(){const o=window.NB_ONLY;if(o&&o!=='ae')return _ep.apply(this,arguments);let t='';try{const c=S.c;if(c&&c.soul){const A=aeS(c),rows=Object.keys(TECH).filter(k=>A.tech[k]).map(k=>`${TN[k]}: ${TECH[k].slice(0,A.tech[k]).join(' · ')}`);
+      if(rows.length||A.pg)t=`<div class="card log" style="text-align:left;padding:8px"><b style="font-size:12px">💡 เทคนิคและความรู้</b>${rows.map(r=>`<div style="font-size:11px;margin:3px 0">${r}</div>`).join('')}${A.pg?`<div style="font-size:11px">📜 หนังสือโบราณ ${Math.min(8,A.pg)}/8 หน้า</div>`:''}</div>`;}}catch(e){}return o==='ae'?t:t+_ep.apply(this,arguments);};
 }
 }
 
@@ -3149,6 +3152,58 @@ function cxPanel(){
   const _ev=evolve;evolve=function(){const r=_ev.apply(this,arguments);try{fbRec(S.c);}catch(e){}return r;};
   const _uc=useCrystal;useCrystal=function(){const r=_uc.apply(this,arguments);try{fbRec(S.c);}catch(e){}return r;};
   const _od=openDiscovery;openDiscovery=function(){const r=_od.apply(this,arguments);try{const b=document.getElementById('xBody');if(b)b.insertAdjacentHTML('afterbegin',`<div class="g" style="margin-bottom:6px"><button class="btn" onclick="cxBook()">🔬 สมุดความสัมพันธ์</button><button class="btn" onclick="fbBook()">📘 สมุดร่าง</button></div>`);}catch(e){}return r;};
-  const _ep=emPanel;emPanel=function(){let t='';try{t=cxPanel();}catch(e){}return t+_ep.apply(this,arguments);};
+  const _ep=emPanel;emPanel=function(){const o=window.NB_ONLY;if(o&&o!=='cx')return _ep.apply(this,arguments);let t='';try{t=cxPanel();}catch(e){}return o==='cx'?t:t+_ep.apply(this,arguments);};
 }
+}
+
+
+// ################ notebook-layout ################
+// ===== notebook-layout · สมุดบันทึกจัดหน้าใหม่ (ครึ่งบน=ภาพ · ครึ่งล่าง=ปุ่ม 3×3 กดเข้าทีละหน้า · ไม่เลื่อนหน้า) · โหลดหลังสุด =====
+{
+const T=[['p','🧭','บุคลิก'],['m','📖','บันทึก'],['f','💞','ความสัมพันธ์'],['l','🎯','ความชอบ'],['e','🌡️','อารมณ์'],['g','🧬','ร่างและพลัง'],['y','👪','ตระกูล'],['d','🔬','ค้นพบ'],['s','📋','คัดลอกเรื่อง']];
+let NB={k:null,pg:0,un:0};
+const nbP=k=>{window.NB_ONLY=k;try{return emPanel();}catch(e){return '';}finally{window.NB_ONLY=null;}};
+const sf=f=>{try{return f();}catch(e){return '';}};
+function pager(items,per){
+  const n=Math.max(1,Math.ceil(items.length/per));NB.pg=Math.max(0,Math.min(NB.pg,n-1));
+  const nav=n>1?`<div style="display:flex;justify-content:center;align-items:center;gap:14px;margin-top:6px"><button class="btn" style="padding:2px 14px" onclick="nbPg(-1)">‹</button><small>${NB.pg+1}/${n}</small><button class="btn" style="padding:2px 14px" onclick="nbPg(1)">›</button></div>`:'';
+  return (items.slice(NB.pg*per,NB.pg*per+per).join('')||'<div class="log">ยังไม่มีเรื่องราว… ลองพาออกไปผจญภัยดู</div>')+nav;
+}
+const memCard=e=>`<div class="card" style="text-align:left;padding:5px 8px;margin:3px 0;border-left:4px solid ${e.w>=4?'var(--ac)':e.w>=3?'var(--blue)':'var(--bd)'}"><b style="font-size:12px">${e.ic} ${e.t}</b><div style="font-size:10px;color:var(--mu)">วันที่ ${e.d}${sf(()=>sdBadge(e))}${e.r?` · “${e.r}”`:''}</div></div>`;
+function page(k){
+  const c=S.c,so=c.soul;
+  if(k==='p'){const a=soulArch(c);return `<div class="log" style="font-size:12px">${a[0]} <b>${a[1]}</b> · ร่าง ${c.stage} · รุ่น ${S.gen}<br>อารมณ์ตอนนี้: <b>${sf(()=>ctMoodText(c))}</b></div>${sf(()=>axMeter('bold')+axMeter('kind')+axMeter('play'))}<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${so.q.map(q=>`<span class="log" style="padding:2px 8px;border:1px solid var(--bd);border-radius:10px">${QK[q][0]} ${QK[q][1]}</span>`).join('')}</div>`;}
+  if(k==='m'){const star=so.j.filter(e=>e.w>=4).slice(0,3),rest=so.j.filter(e=>!star.includes(e)).slice(0,18);return pager(star.concat(rest).map(memCard),4);}
+  if(k==='f'){const fr=Object.entries(so.fr).map(([n,f])=>`${f.ic}${n}${f.real?'💚':''}×${f.n}`).join(' · '),fe=Object.keys(so.fear).filter(n=>so.fear[n]>=2),gr=Object.keys(so.grudge);
+    return `<div class="log" style="line-height:1.6">${fr?'💞 เพื่อน: '+fr:'💞 ยังไม่มีเพื่อนสนิท'}${fe.length?'<br>😨 กลัว: '+fe.join(', '):''}${gr.length?'<br>😡 แค้น: '+gr.join(', '):''}</div>`+sf(()=>blPanel());}
+  if(k==='l')return sf(()=>pfPanel())+`<div class="log" style="line-height:1.6">${so.fav?`💖 งานอดิเรก: ${SPOTS[so.fav].ic}${SPOTS[so.fav].n}`:''}${so.ff?`<br>🍽️ ของโปรด: ${FOODS[so.ff].ic}${FOODS[so.ff].n}`:''}</div>`;
+  if(k==='e')return nbP('base')+sf(()=>sdPanel())+nbP('ma');
+  if(k==='g')return `<div class="card log" style="text-align:left;padding:6px 8px;line-height:1.5">📈 เพดานสเตตัส 💪${capOf('str')} ⚡${capOf('spd')} 🧠${capOf('int')}${c.nocap?' (รุ่นนี้ยังไม่จำกัด)':c.stage>=4?' (ร่าง 4 ทะลุเพดาน ×1.5)':''}<br>🏆 ชนะ ${so.w} · 💔 แพ้ ${so.l}${so.ws>=2?` · 🔥 ติด ${so.ws}`:so.ls>=2?` · 😞 แพ้ติด ${so.ls}`:''}</div>`+nbP('fr')+nbP('ae');
+  if(k==='y'){const cap=Math.round((capOf('str')/CAP0-1)*100),past=(S.past||[]).map(p=>`<div class="log" style="text-align:left;margin:4px 0">${p.ic} <b>${p.n}</b> รุ่น ${p.g} · ${p.ti} · 🏆${p.w}/💔${p.l}<br><small>${p.best?'⭐ '+p.best:''}</small></div>`),rows=(window.famRowsArr?sf(()=>window.famRowsArr()):[]);
+    return `<div class="log" style="font-size:12px;margin-bottom:4px">รุ่นที่ ${S.gen} · เพดานสเตตัสตระกูล +${cap}% <button class="btn" style="font-size:11px;padding:2px 8px" onclick="famBook()">📚 ตำนาน</button></div>`+pager(rows.concat(past),3);}
+  if(k==='d')return nbP('cx')+`<div class="g" style="margin-top:6px"><button class="btn" onclick="openDiscovery()">🔎 สมุดค้นพบและความทรงจำ</button></div>`;
+  return '';
+}
+function draw(){
+  const c=S.c,el=document.getElementById('nbUI');if(!el)return;if(!c||!c.soul||S.over){el.remove();return;}
+  const top=`<div style="height:50vh;height:50dvh;flex:none;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden"><button class="btn" onclick="nbClose()" style="position:absolute;top:10px;right:10px;padding:6px 12px;z-index:2">✕</button><div class="sv" style="width:min(66vw,280px)">${svg(c)}</div></div>`;
+  let body;
+  if(!NB.k){
+    body=`<div style="font-size:12px;color:var(--mu);margin-bottom:6px;text-align:center">📔 สมุดบันทึกของ <b>${c.name}</b></div><div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:8px">`
+     +T.map(t=>`<button class="btn" onclick="nbOpen('${t[0]}')" style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 2px;min-height:0"><span style="font-size:26px;line-height:1">${t[1]}</span><span style="font-size:11px">${t[2]}</span>${t[0]==='m'&&NB.un>0?`<i style="position:absolute;top:3px;right:5px;background:var(--ac);color:#fff;border-radius:9px;font-size:10px;padding:0 5px;font-style:normal">${NB.un}</i>`:''}</button>`).join('')+'</div>';
+  }else{
+    const t=T.find(x=>x[0]===NB.k);
+    body=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><button class="btn" onclick="nbOpen()" style="padding:4px 14px">‹</button><b style="font-size:14px">${t[1]} ${t[2]}</b></div><div style="flex:1;min-height:0;overflow-y:auto;text-align:left">${page(NB.k)}</div>`;
+  }
+  el.innerHTML=top+`<div style="height:50vh;height:50dvh;flex:none;box-sizing:border-box;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));background:var(--card);border-radius:20px 20px 0 0;box-shadow:0 -4px 16px rgba(0,0,0,.14);display:flex;flex-direction:column;overflow:hidden">${body}<button id="btnStory" style="display:none"></button></div>`;
+}
+window.nbOpen=function(k){if(k==='s'){try{copyStory();setSay('📋 คัดลอกเรื่องราวแล้ว',2200);}catch(e){}return;}NB.k=k||null;NB.pg=0;draw();};
+window.nbPg=function(d){NB.pg+=d;draw();};
+window.nbClose=function(){const el=document.getElementById('nbUI');if(el)el.remove();};
+openSoul=function(){
+  const c=S.c;if(!c||!c.soul||S.b||S.ev||XQ||S.over||S.evo)return;
+  let el=document.getElementById('nbUI');if(el)el.remove();
+  el=document.createElement('div');el.id='nbUI';el.style.cssText='position:fixed;inset:0;z-index:98;background:var(--bg,var(--card));display:flex;flex-direction:column;overflow:hidden';document.body.appendChild(el);
+  NB={k:null,pg:0,un:c.soul.unread|0};c.soul.unread=0;draw();render();
+};
 }
