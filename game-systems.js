@@ -3207,3 +3207,71 @@ openSoul=function(){
   NB={k:null,pg:0,un:c.soul.unread|0};c.soul.unread=0;draw();render();
 };
 }
+
+
+// ################ expedition-layout ################
+// ===== expedition-layout · หน้าผจญภัยจัดใหม่ (ครึ่งบน=ภาพ · ครึ่งล่าง=ปุ่ม 3 ช่อง/แถว กดเข้าทีละหน้า · ไม่เลื่อนหน้า) · โหลดหลังสุด =====
+// ไม่เขียนระบบสำรวจใหม่: ย้ายชิ้นส่วนเดิม (ปุ่มกดค้าง #xHold · สถานะ #xSt · ผลลัพธ์ #xRes · กระเป๋า #xBag · เป้าหมาย #rcGoal · ผู้ร่วมทาง #sbComp) ไปวางในแต่ละหน้า
+// ทำให้โค้ดเดิมที่เขียนลง id เหล่านี้ (xMsg/xStat/xBagUI/xBind) ทำงานเหมือนเดิม · ถ้าจัดหน้าใหม่พัง จะเหลือหน้าเดิมให้ใช้ต่อ
+{
+let EK=null,ST=null;
+const $$=id=>document.getElementById(id);
+const sf=f=>{try{return f();}catch(e){return '';}};
+const tile=(ic,lb,oc,o)=>{o=o||{};return `<button class="btn ${o.on?'on':''}" ${o.dis?'disabled':''} onclick="${oc}" style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 2px;min-height:0;font-size:11px;line-height:1.2"><span style="font-size:24px;line-height:1">${ic}</span><span>${lb}</span>${o.bd?`<i style="position:absolute;top:3px;right:5px;background:var(--ac);color:#fff;border-radius:9px;font-size:10px;padding:0 5px;font-style:normal">${o.bd}</i>`:''}</button>`;};
+const PG={go:['🚀','ออกสำรวจ'],bag:['🎒','กระเป๋า'],omen:['🧿','ลางและอากาศ'],comp:['🤝','ผู้ร่วมทาง'],goal:['🎯','เป้าหมายทริป']};
+function layout(){
+  const body=$$('xBody'),c=S.c;if(!body||!c||!$$('xHold')||!$$('xSt'))return;
+  const bi=[...body.children].find(e=>e.classList&&e.classList.contains('g')&&e.querySelector('button[onclick*="PX.bi="]'));
+  const biomes=(bi?[...bi.querySelectorAll('button')]:[]).map((b,k)=>({k,html:b.innerHTML,dis:b.disabled,on:b.classList.contains('on')}));
+  const two=$$('xSt').parentElement.parentElement,omen=[];
+  for(let n=bi&&bi.nextElementSibling;n&&n!==two;n=n.nextElementSibling)omen.push(n);
+  const N={st:$$('xSt'),ring:$$('xHold'),res:$$('xRes'),bag:$$('xBag'),goal:$$('rcGoal'),comp:$$('sbComp')};
+  const store=document.createElement('div');store.id='exStore';store.style.display='none';
+  Object.values(N).forEach(n=>{if(n)store.appendChild(n);});omen.forEach(n=>store.appendChild(n));
+  ST={N,omen,biomes,store};
+  const ov=body.parentElement;
+  ov.style.cssText='position:fixed;inset:0;padding:0;z-index:99;display:block;background:var(--bg)';
+  body.style.cssText='max-width:none;width:100%;height:100%;max-height:none;padding:0;gap:0;border-radius:0;display:flex;flex-direction:column;overflow:hidden;text-align:left;animation:none;background:var(--bg)';
+  body.innerHTML='';body.appendChild(store);
+  const top=document.createElement('div');top.id='exTop';body.appendChild(top);
+  const bot=document.createElement('div');bot.id='exBot';body.appendChild(bot);
+  if(EK==null&&S.depth>0)EK='go';
+  draw();
+}
+function draw(){
+  const top=$$('exTop'),bot=$$('exBot'),c=S.c;if(!top||!bot||!ST||!c)return;const B=BIO[PX.bi]||BIO[0];
+  Object.values(ST.N).forEach(n=>{if(n)ST.store.appendChild(n);});ST.omen.forEach(n=>ST.store.appendChild(n));
+  top.style.cssText=`height:50vh;height:50dvh;flex:none;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--bg);background:linear-gradient(180deg,color-mix(in srgb,${B.col} 30%,var(--bg)),var(--bg))`;
+  top.innerHTML=`<button class="btn" onclick="closeX()" style="position:absolute;top:10px;right:10px;padding:6px 12px;z-index:2">✕</button><div style="position:absolute;font-size:170px;opacity:.1;line-height:1">${B.ic}</div><div class="sv" style="width:min(62vw,270px);position:relative">${svg(c)}</div>`;
+  bot.style.cssText='height:50vh;height:50dvh;flex:none;box-sizing:border-box;padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));background:var(--card);border-radius:20px 20px 0 0;box-shadow:0 -4px 16px rgba(0,0,0,.14);display:flex;flex-direction:column;overflow:hidden';
+  const away=S.depth>0;
+  if(!EK){
+    const bag=sf(()=>bagN()),ai=!!dx().ai;
+    bot.innerHTML=`<div style="font-size:12px;color:var(--mu);margin-bottom:6px;text-align:center">🧭 ${away?`กำลังสำรวจ · 🕳️ ลึก ${S.depth}`:'ที่ค่าย'} · 🔋 ${Math.round(c.en)}</div><div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);gap:8px">`
+     +ST.biomes.map(b=>`<button class="btn ${b.on?'on':''}" ${b.dis?'disabled':''} onclick="PX.bi=${b.k};openExp()" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 2px;min-height:0;font-size:11px;line-height:1.25">${b.html}</button>`).join('')
+     +tile('🚀','ออกสำรวจ',"exGo('go')",{bd:away?S.depth:''})+tile('🎒','กระเป๋า',"exGo('bag')",{bd:bag||''})+tile('🧿','ลางและอากาศ',"exGo('omen')")
+     +tile('🧰','กล่องของ','dxInv()')+tile('📖','อัลบั้ม','openAlbum()')+tile('📚','สมุดสำรวจ','dxCodex()')
+     +tile('🤝','ผู้ร่วมทาง',"exGo('comp')",{dis:!ST.N.comp})+tile('🎯','เป้าหมายทริป',"exGo('goal')")+(away?tile('🏠','กลับค่าย','xBack()'):tile('🤖',ai?'เลือกเอง: เปิด':'ให้สัตว์เลือกเอง',"dxAi();exGo()",{on:ai}))
+     +'</div>';
+    return;
+  }
+  const t=PG[EK];
+  bot.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><button class="btn" onclick="exGo()" style="padding:4px 14px">‹</button><b style="font-size:14px">${t[0]} ${t[1]}</b></div><div id="exPg" style="flex:1;min-height:0;overflow-y:auto;text-align:left"></div>`;
+  const pg=$$('exPg'),N=ST.N,put=n=>{if(n)pg.appendChild(n);},say=h=>{const d=document.createElement('div');d.className='log';d.innerHTML=h;pg.appendChild(d);};
+  if(EK==='go'){
+    const row=document.createElement('div');row.style.cssText='display:flex;gap:10px;align-items:center;margin-bottom:8px';
+    const a=document.createElement('div');a.style.cssText='flex:none;width:128px';const b=document.createElement('div');b.style.cssText='flex:1;min-width:0;display:grid;gap:6px';
+    row.appendChild(a);row.appendChild(b);pg.appendChild(row);put(null);a.appendChild(N.ring);b.appendChild(N.st);
+    if(away){const h=document.createElement('button');h.className='btn';h.setAttribute&&h.setAttribute('onclick','xBack()');h.onclick=()=>xBack();h.innerHTML='🏠 กลับค่าย';b.appendChild(h);}
+    put(N.res);
+  }else if(EK==='bag')put(N.bag);
+  else if(EK==='omen'){if(ST.omen.length)ST.omen.forEach(put);else say('🌤️ ไม่มีข้อมูลลางในตอนนี้');}
+  else if(EK==='comp'){if(N.comp)put(N.comp);else say('ยังไม่มีเพื่อนที่ชวนได้ — ต้องสนิทหรือเป็นคู่แข่งกันก่อน');}
+  else if(EK==='goal'){put(N.goal);const h=document.createElement('button');h.className='btn';h.setAttribute&&h.setAttribute('onclick','glOpen()');h.onclick=()=>glOpen();h.style.marginTop='8px';h.innerHTML='🏆 เป้าหมายระยะยาว';pg.appendChild(h);}
+}
+window.exGo=function(k){EK=k||null;draw();};
+{
+  const _o=openExp;openExp=function(){const r=_o.apply(this,arguments);try{layout();}catch(e){console.error('ex layout',e);}return r;};
+  const _cx=closeX;closeX=function(keep){if(!keep){EK=null;ST=null;}return _cx.apply(this,arguments);};
+}
+}
